@@ -1,0 +1,14 @@
+[package]
+name = "img_serve"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.8"
+image = "0.25.9"
+imghdr = "0.7.0"
+tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "parking_lot"] }
+serde = { version = "1.0.228", features = ["derive"] }
+webp = "0.3.1"
+log = "0.4.29"
