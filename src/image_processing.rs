@@ -4,7 +4,7 @@ use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgba};
 
 pub const DEFAULT_COMPRESSION_QUALITY: u32 = 82;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, PartialEq,Hash,Eq,Clone)]
 pub struct ProcessingParams {
     pub width: Option<u32>,
     pub height: Option<u32>,

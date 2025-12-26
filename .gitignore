@@ -2,3 +2,5 @@
 .idea/
 *.jpg
 *.png
+.env
+*temp*

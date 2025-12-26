@@ -50,7 +50,7 @@ impl IntoImageFormat for imghdr::Type {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Hash, Eq, Copy, Clone)]
 pub enum Extensions {
     Webp,
 }
