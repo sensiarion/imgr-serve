@@ -183,7 +183,12 @@ impl Processor {
         }
 
         let img = image::load_from_memory_with_format(original_image, img_format.unwrap()).unwrap();
-        let resized = image_processing::resize::<DynamicImage>(&img, params.width, params.height);
+        let resized = image_processing::resize::<DynamicImage>(
+            &img,
+            params.width,
+            params.height,
+            params.ratio_policy.clone(),
+        );
         let extension = params.extension.unwrap_or(Extensions::Webp);
         let result_data =
             cast_to_extension::<DynamicImage>(resized, extension.clone(), params.quality);

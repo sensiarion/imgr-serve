@@ -20,7 +20,7 @@ pub struct MemoryProcessedImageCache {
 
 impl MemoryProcessedImageCache {
     pub fn new(capacity: Option<NonZeroUsize>) -> Self {
-        let capacity = capacity.unwrap_or(NonZeroUsize::new(256).unwrap());
+        let capacity = capacity.unwrap_or(NonZeroUsize::new(1024).unwrap());
 
         MemoryProcessedImageCache {
             cache: LruCache::new(capacity),
