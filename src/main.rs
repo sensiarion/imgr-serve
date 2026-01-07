@@ -131,8 +131,7 @@ async fn preload_image(
     (StatusCode::OK, Json(json!({"status": "Ok"})))
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -141,20 +140,41 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config = Config::from_env();
-    let (host, port) = (config.host.clone(), config.port.clone());
+    // Configure rayon's global thread pool to use all available CPU cores
+    // This ensures fast_image_resize can utilize all cores for parallel processing
+    let num_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(8);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+        .expect("Failed to initialize rayon thread pool");
 
-    // build our application with a single route
-    let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
-        .route("/images/{id}", get(serve_file))
-        .route("/images/{id}", put(preload_image))
-        .with_state(Arc::new(tokio::sync::Mutex::new(config)));
+    // Configure tokio runtime with a large blocking thread pool
+    // This allows multiple concurrent image processing requests to run in parallel
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(num_threads)
+        .max_blocking_threads(num_threads * 2) // Allow more blocking threads for CPU-intensive work
+        .enable_all()
+        .build()
+        .expect("Failed to create tokio runtime");
 
-    info!("Running server on http://{}:{}", host, port);
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    rt.block_on(async {
+        let config = Config::from_env();
+        let (host, port) = (config.host.clone(), config.port.clone());
+
+        // build our application with a single route
+        let app = Router::new()
+            .route("/", get(|| async { "Hello, World!" }))
+            .route("/images/{id}", get(serve_file))
+            .route("/images/{id}", put(preload_image))
+            .with_state(Arc::new(tokio::sync::Mutex::new(config)));
+
+        info!("Running server on http://{}:{}", host, port);
+        // run our app with hyper, listening globally on port 3000
+        let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
+            .await
+            .unwrap();
+        axum::serve(listener, app).await.unwrap();
+    });
 }

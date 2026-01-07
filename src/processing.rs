@@ -8,6 +8,7 @@ use crate::types::{ImageContainer, ImageId};
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
 use std::sync::Arc;
+use tokio::task::spawn_blocking;
 
 pub enum ProcessingErrorType {
     UnsupportingExtension,
@@ -97,9 +98,11 @@ impl Processor {
         }
 
         let processed_from_storage = {
-            let storage = self.storage.clone();
-            let mut storage_guard = storage.lock().await;
-            let orig_image = storage_guard.get(image_id.clone()).await;
+            let orig_image = {
+                let storage = self.storage.clone();
+                let mut storage_guard = storage.lock().await;
+                storage_guard.get(image_id.clone()).await.cloned()
+            };
             match orig_image {
                 None => None,
                 Some(orig_image) => {
@@ -114,7 +117,7 @@ impl Processor {
                         }
                         Some(_) => {
                             debug!("Found image {} in storage, start processing", image_id);
-                            return self._process_image(image_id, orig_image, params).await;
+                            return self._process_image(image_id, &orig_image, params).await;
                         }
                     }
                 }
@@ -183,16 +186,26 @@ impl Processor {
         }
 
         let img = image::load_from_memory_with_format(original_image, img_format.unwrap()).unwrap();
-        let resized = image_processing::resize::<DynamicImage>(
-            &img,
-            params.width,
-            params.height,
-            params.ratio_policy.clone(),
-        );
-        let extension = params.extension.unwrap_or(Extensions::Webp);
-        let result_data =
-            cast_to_extension::<DynamicImage>(resized, extension.clone(), params.quality);
-        let result = ImageContainer::new(Box::new(result_data.clone()), None, extension);
+
+        let params_clone = params.clone();
+        // Use spawn_blocking to move CPU-intensive work off the async runtime
+        // The resize operation will automatically use rayon for parallel processing
+        // (with the rayon feature enabled in fast_image_resize)
+        let result = spawn_blocking(move || {
+            let params = params_clone;
+            let resized = image_processing::resize::<DynamicImage>(
+                &img,
+                params.width,
+                params.height,
+                params.ratio_policy.clone(),
+            );
+            let extension = params.extension.unwrap_or(Extensions::Webp);
+            let result_data =
+                cast_to_extension::<DynamicImage>(resized, extension.clone(), params.quality);
+            ImageContainer::new(Box::new(result_data.clone()), None, extension)
+        })
+        .await
+        .unwrap();
 
         {
             let cache = self.cache.clone();
@@ -208,7 +221,7 @@ impl Processor {
     pub async fn prefetch(
         &mut self,
         image_id: ImageId,
-        filename: String,
+        _filename: String,
         data: Vec<u8>,
     ) -> Result<(), ProcessingError> {
         if let Some(err) = self.ensure_correct_extension(&data) {
@@ -222,5 +235,4 @@ impl Processor {
 
         Ok(())
     }
-    
 }
