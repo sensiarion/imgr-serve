@@ -1,6 +1,5 @@
 use crate::image_types::Extensions;
 use fast_image_resize::{Resizer};
-use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgba};
 
 pub const DEFAULT_COMPRESSION_QUALITY: u32 = 82;
@@ -36,7 +35,6 @@ pub fn resize<I: GenericImageView<Pixel = Rgba<u8>>>(
     height: Option<u32>,
     ratio_policy: Option<RatioPolicy>,
 ) -> ImageBuffer<I::Pixel, Vec<<I::Pixel as Pixel>::Subpixel>> {
-    let filter_type = FilterType::Lanczos3;
     let w = width.unwrap_or(img.width());
     let h = height.unwrap_or(img.height());
 
@@ -48,7 +46,15 @@ pub fn resize<I: GenericImageView<Pixel = Rgba<u8>>>(
     let mut resizer = Resizer::new();
 
     let resulting_image = match ratio_policy {
-        RatioPolicy::Resize => img.resize_exact(w, h, filter_type.clone()),
+        RatioPolicy::Resize => {
+            // Use fast_image_resize for parallel processing instead of image crate's resize_exact
+            let mut dst_img = DynamicImage::new(w, h, img.color());
+            let resize_res = resizer.resize(img, &mut dst_img, None);
+            if let Err(resize_err) = resize_res {
+                panic!("There should be no error on resize, got {}", resize_err)
+            };
+            dst_img
+        }
         RatioPolicy::CropToCenter => {
             // Resize to cover target dimensions while maintaining aspect ratio,
             // then crop to exact target dimensions
