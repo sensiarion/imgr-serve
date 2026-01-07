@@ -1,4 +1,5 @@
 mod config;
+mod filename_extractor;
 mod image_processing;
 mod image_types;
 mod processed_image_cache;
@@ -8,18 +9,20 @@ mod storage;
 mod types;
 
 use crate::config::Config;
-use crate::processing::{ProcessingErrorType};
-use axum::body::{Body};
+use crate::filename_extractor::FileNameExtractor;
+use crate::processing::ProcessingErrorType;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::put;
 use axum::{routing::get, Json, Router};
-use image_processing::{ProcessingParams};
+use image_processing::ProcessingParams;
 use image_types::{Extensions, MimeType};
 use log::{debug, info};
 use serde_json::json;
-use std::sync::{Arc};
+use std::sync::Arc;
+use sanitize_filename::sanitize;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -32,25 +35,26 @@ async fn serve_file(
     query: Query<ProcessingParams>,
     State(state): State<Arc<tokio::sync::Mutex<Config>>>,
 ) -> impl IntoResponse {
+    let image_id = sanitize(image_id);
     info!("Getting img {}", image_id);
 
     let result = {
         let state = state.clone();
         let mut state_guard = state.lock().await;
 
-        state_guard.processor.get(image_id.clone(), query.0.clone()).await
+        state_guard
+            .processor
+            .get(image_id.clone(), query.0.clone())
+            .await
     };
-    debug!("processed image {}. Generating response",&image_id);
+    debug!("processed image {}. Generating response", &image_id);
 
     // TODO: fix double unwrap for extension (should to it here and then pass into handler)
 
     let response = match result {
         Ok(img) => Response::builder()
             .status(200)
-            .header(
-                header::CONTENT_TYPE,
-                img.extension.mime_type(),
-            )
+            .header(header::CONTENT_TYPE, img.extension.mime_type())
             .header(
                 header::CONTENT_DISPOSITION,
                 // TODO: rewrite to support utf-8 file names
@@ -86,6 +90,9 @@ async fn preload_image(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
+    let image_id = sanitize(image_id);
+    info!("Preloading img {}", image_id);
+
     // TODO move api key from main Config
     let server_api_key = {
         let state = state.clone();
@@ -110,7 +117,11 @@ async fn preload_image(
         let mut state_guard = state.lock().await;
         let result = state_guard
             .processor
-            .prefetch(image_id, body.to_vec())
+            .prefetch(
+                image_id.clone(),
+                FileNameExtractor::extract(&headers).unwrap_or(image_id.to_string()),
+                body.to_vec(),
+            )
             .await;
         if let Err(err) = result {
             return (StatusCode::BAD_REQUEST, Json(json!({"detail": err.detail})));

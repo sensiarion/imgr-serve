@@ -208,6 +208,7 @@ impl Processor {
     pub async fn prefetch(
         &mut self,
         image_id: ImageId,
+        filename: String,
         data: Vec<u8>,
     ) -> Result<(), ProcessingError> {
         if let Some(err) = self.ensure_correct_extension(&data) {
@@ -220,10 +221,6 @@ impl Processor {
         storage.set(image_id, &data).await;
 
         Ok(())
-
-        // let storage = self
     }
-    //     get with image params (size, ext)
-    //       and fallback to storage if not found
-    //     prefetch
+    
 }

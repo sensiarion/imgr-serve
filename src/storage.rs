@@ -1,4 +1,4 @@
-use crate::types::ImageId;
+use crate::types::{ImageId};
 use async_trait::async_trait;
 use lru::LruCache;
 use std::num::NonZeroUsize;
