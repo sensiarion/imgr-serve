@@ -472,7 +472,6 @@ dependencies = [
  "document-features",
  "image",
  "num-traits",
- "rayon",
  "thiserror",
 ]
 
@@ -954,6 +953,7 @@ dependencies = [
  "fast_image_resize",
  "image",
  "imghdr",
+ "lazy_static",
  "log",
  "lru",
  "percent-encoding",

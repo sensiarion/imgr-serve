@@ -1,5 +1,5 @@
 use crate::image_types::Extensions;
-use fast_image_resize::Resizer;
+use fast_image_resize::{Resizer};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgba};
 

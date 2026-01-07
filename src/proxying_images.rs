@@ -79,7 +79,7 @@ impl FileApiBackend for SimpleFileApiBackend {
                     .collect::<String>()
             );
             return Err(FileApiError::new(
-                format!("Got error from file api"),
+                "Got error from file api".to_string(),
                 Some(status.as_u16().into()),
             ));
         }
@@ -87,11 +87,3 @@ impl FileApiBackend for SimpleFileApiBackend {
         Ok(resp.bytes().await.unwrap().to_vec())
     }
 }
-
-//
-// // TODO: а сейчас нужно садиться за какой-никакой design API
-// //       - делаем processing_api, с pipeline форматом (builder)
-// //       - добавляем storage_api для processing_api (по builder параметрам и image_id)
-// //         - сейчас это будет caching storage, в последующем - что угодно
-// //       - переделываем этот файл под fetcher trait, чтобы можно было менять форматы получения файлов
-// //       - storage_api отвечает за хранение оригинальных изображений, нр должен быть и cache api - для хранения различных версий
