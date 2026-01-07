@@ -41,6 +41,8 @@ impl Config {
             )) as Arc<dyn FileApiBackend + Send + Sync>),
         };
 
+        // TODO specify cache size via env
+        // TODO choose storage/cache backends via env
         let storage = CachingStorage::new(None);
         let cache = MemoryProcessedImageCache::new(None);
 
