@@ -10,7 +10,7 @@ use log::{debug, warn};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::task::spawn_blocking;
-use tracing::{instrument};
+use tracing::instrument;
 
 pub enum ProcessingErrorType {
     UnsupportingExtension,
@@ -96,14 +96,14 @@ impl Processor {
             if lock_wait.as_millis() > 10 {
                 debug!("Cache lock wait: {:?} for image {}", lock_wait, image_id);
             }
-            cache_guard
-                .get(image_id.clone(), params.clone())
-                .await
-                .cloned()
+            cache_guard.get(image_id.clone(), params.clone()).await
         };
         let cache_check_time = cache_check_start.elapsed();
         if cache_check_time.as_millis() > 50 {
-            debug!("Cache check took {:?} for image {}", cache_check_time, image_id);
+            debug!(
+                "Cache check took {:?} for image {}",
+                cache_check_time, image_id
+            );
         }
         if let Some(cached) = cached {
             debug!("Fetched image {} from cache", image_id);
@@ -237,18 +237,23 @@ impl Processor {
         .unwrap();
         let resize_total_time = resize_start.elapsed();
         if resize_total_time.as_millis() > 500 {
-            debug!("Total resize+encode took {:?} for image {}", resize_total_time, image_id);
+            debug!(
+                "Total resize+encode took {:?} for image {}",
+                resize_total_time, image_id
+            );
         }
 
         // Store in cache
-        let cache_store_start = Instant::now();
         {
             let cache = self.cache.clone();
             let lock_start = Instant::now();
             let mut cache_guard = cache.write().await;
             let lock_wait = lock_start.elapsed();
             if lock_wait.as_millis() > 10 {
-                debug!("Cache lock wait (store): {:?} for image {}", lock_wait, image_id);
+                debug!(
+                    "Cache lock wait (store): {:?} for image {}",
+                    lock_wait, image_id
+                );
             }
             cache_guard
                 .set(image_id.clone(), params, result.clone())

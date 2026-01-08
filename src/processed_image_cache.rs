@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use crate::image_processing::ProcessingParams;
 use crate::types::{ImageContainer, ImageId};
 use async_trait::async_trait;
-use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
@@ -10,14 +8,14 @@ use std::sync::Arc;
 #[async_trait]
 pub trait ProcessedImagesCache {
     async fn get(& self, image_id: ImageId, params: ProcessingParams)
-    -> Option<&Arc<ImageContainer>>;
+    -> Option<Arc<ImageContainer>>;
 
     async fn set(&mut self, image_id: ImageId, params: ProcessingParams, image: Arc<ImageContainer>);
 }
 
 /// Inmemory cache for processed images
 pub struct MemoryProcessedImageCache {
-    cache: HashMap<(ImageId, ProcessingParams), Arc<ImageContainer>>,
+    cache: quick_cache::sync::Cache<(ImageId, ProcessingParams), Arc<ImageContainer>>,
 }
 
 impl MemoryProcessedImageCache {
@@ -25,7 +23,7 @@ impl MemoryProcessedImageCache {
         let capacity = capacity.unwrap_or(NonZeroUsize::new(1024).unwrap());
 
         MemoryProcessedImageCache {
-            cache: HashMap::with_capacity(capacity.into()),
+            cache: quick_cache::sync::Cache::new(capacity.into()),
         }
     }
 }
@@ -36,7 +34,7 @@ impl ProcessedImagesCache for MemoryProcessedImageCache {
         & self,
         image_id: ImageId,
         params: ProcessingParams,
-    ) -> Option<&Arc<ImageContainer>> {
+    ) -> Option<Arc<ImageContainer>> {
         self.cache.get(&(image_id, params))
     }
 
