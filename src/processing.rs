@@ -8,7 +8,9 @@ use crate::types::{ImageContainer, ImageId};
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::task::spawn_blocking;
+use tracing::{instrument};
 
 pub enum ProcessingErrorType {
     UnsupportingExtension,
@@ -42,15 +44,15 @@ impl ProcessingError {
 }
 
 pub struct Processor {
-    storage: Arc<tokio::sync::Mutex<dyn Storage + Send + Sync>>,
-    cache: Arc<tokio::sync::Mutex<dyn ProcessedImagesCache + Send + Sync>>,
+    storage: Arc<tokio::sync::RwLock<dyn Storage + Send + Sync>>,
+    cache: Arc<tokio::sync::RwLock<dyn ProcessedImagesCache + Send + Sync>>,
     file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
 }
 
 impl Processor {
     pub fn new(
-        storage: Arc<tokio::sync::Mutex<dyn Storage + Send + Sync>>,
-        cache: Arc<tokio::sync::Mutex<dyn ProcessedImagesCache + Send + Sync>>,
+        storage: Arc<tokio::sync::RwLock<dyn Storage + Send + Sync>>,
+        cache: Arc<tokio::sync::RwLock<dyn ProcessedImagesCache + Send + Sync>>,
         file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
     ) -> Self {
         Processor {
@@ -79,29 +81,46 @@ impl Processor {
         None
     }
 
+    #[instrument(skip(self), fields(image_id = %image_id))]
     pub async fn get(
-        &mut self,
+        &self,
         image_id: ImageId,
         params: ProcessingParams,
-    ) -> Result<ImageContainer, ProcessingError> {
+    ) -> Result<Arc<ImageContainer>, ProcessingError> {
+        // Check processed image cache
+        let cache_check_start = Instant::now();
         let cache = self.cache.clone();
-        {
-            let mut cache_guard = cache.lock().await;
-            let cached = cache_guard
+        let cached = {
+            let cache_guard = cache.read().await;
+            let lock_wait = cache_check_start.elapsed();
+            if lock_wait.as_millis() > 10 {
+                debug!("Cache lock wait: {:?} for image {}", lock_wait, image_id);
+            }
+            cache_guard
                 .get(image_id.clone(), params.clone())
                 .await
-                .cloned();
-            if let Some(cached) = cached {
-                debug!("Fetched image {} from cache", image_id);
-                return Ok(cached);
-            }
+                .cloned()
+        };
+        let cache_check_time = cache_check_start.elapsed();
+        if cache_check_time.as_millis() > 50 {
+            debug!("Cache check took {:?} for image {}", cache_check_time, image_id);
+        }
+        if let Some(cached) = cached {
+            debug!("Fetched image {} from cache", image_id);
+            return Ok(cached);
         }
 
+        // Check storage for original image
         let processed_from_storage = {
             let orig_image = {
                 let storage = self.storage.clone();
-                let mut storage_guard = storage.lock().await;
-                storage_guard.get(image_id.clone()).await.cloned()
+                let lock_start = Instant::now();
+                let storage_guard = storage.read().await;
+                let lock_wait = lock_start.elapsed();
+                if lock_wait.as_millis() > 10 {
+                    debug!("Storage lock wait: {:?} for image {}", lock_wait, image_id);
+                }
+                storage_guard.get(image_id.clone()).await.clone()
             };
             match orig_image {
                 None => None,
@@ -159,7 +178,7 @@ impl Processor {
                 debug!("Fetched from api, start processing image {}", image_id);
                 {
                     let storage = self.storage.clone();
-                    let mut storage_guard = storage.lock().await;
+                    let mut storage_guard = storage.write().await;
                     storage_guard.set(image_id.clone(), &orig_image).await;
                 }
 
@@ -171,12 +190,13 @@ impl Processor {
     /// Fully process image and puts it in all caches (storage + processing cache)
     ///
     /// * `image_id` - should be only the **original** image (cause it's passing into storage cache)
+    #[instrument(skip(self, original_image), fields(image_id = %image_id))]
     pub async fn _process_image(
-        &mut self,
+        &self,
         image_id: ImageId,
         original_image: &Vec<u8>,
         params: ProcessingParams,
-    ) -> Result<ImageContainer, ProcessingError> {
+    ) -> Result<Arc<ImageContainer>, ProcessingError> {
         let img_format = self.get_image_format(original_image);
         if img_format.is_none() {
             return Err(ProcessingError::new(
@@ -188,28 +208,48 @@ impl Processor {
         let img = image::load_from_memory_with_format(original_image, img_format.unwrap()).unwrap();
 
         let params_clone = params.clone();
-        // Use spawn_blocking to move CPU-intensive work off the async runtime
-        // The resize operation will automatically use rayon for parallel processing
-        // (with the rayon feature enabled in fast_image_resize)
+        let resize_start = Instant::now();
         let result = spawn_blocking(move || {
             let params = params_clone;
+            let resize_op_start = Instant::now();
             let resized = image_processing::resize::<DynamicImage>(
                 &img,
                 params.width,
                 params.height,
                 params.ratio_policy.clone(),
             );
+            let resize_op_time = resize_op_start.elapsed();
+            if resize_op_time.as_millis() > 200 {
+                debug!("Resize operation took {:?}", resize_op_time);
+            }
+
+            let encode_start = Instant::now();
             let extension = params.extension.unwrap_or(Extensions::Webp);
             let result_data =
                 cast_to_extension::<DynamicImage>(resized, extension.clone(), params.quality);
-            ImageContainer::new(Box::new(result_data.clone()), None, extension)
+            let encode_time = encode_start.elapsed();
+            if encode_time.as_millis() > 100 {
+                debug!("Encode operation took {:?}ms", encode_time);
+            }
+            Arc::new(ImageContainer::new(Box::new(result_data), None, extension))
         })
         .await
         .unwrap();
+        let resize_total_time = resize_start.elapsed();
+        if resize_total_time.as_millis() > 500 {
+            debug!("Total resize+encode took {:?} for image {}", resize_total_time, image_id);
+        }
 
+        // Store in cache
+        let cache_store_start = Instant::now();
         {
             let cache = self.cache.clone();
-            let mut cache_guard = cache.lock().await;
+            let lock_start = Instant::now();
+            let mut cache_guard = cache.write().await;
+            let lock_wait = lock_start.elapsed();
+            if lock_wait.as_millis() > 10 {
+                debug!("Cache lock wait (store): {:?} for image {}", lock_wait, image_id);
+            }
             cache_guard
                 .set(image_id.clone(), params, result.clone())
                 .await;
@@ -219,7 +259,7 @@ impl Processor {
     }
 
     pub async fn prefetch(
-        &mut self,
+        &self,
         image_id: ImageId,
         _filename: String,
         data: Vec<u8>,
@@ -229,7 +269,7 @@ impl Processor {
         }
 
         let _storage = self.storage.clone();
-        let mut storage = _storage.lock().await;
+        let mut storage = _storage.write().await;
 
         storage.set(image_id, &data).await;
 

@@ -47,8 +47,8 @@ impl Config {
         let cache = MemoryProcessedImageCache::new(None);
 
         let processor = Processor::new(
-            Arc::new(tokio::sync::Mutex::new(storage)),
-            Arc::new(tokio::sync::Mutex::new(cache)),
+            Arc::new(tokio::sync::RwLock::with_max_readers(storage,1024)),
+            Arc::new(tokio::sync::RwLock::with_max_readers(cache, 1024)),
             base_file_api
         );
 

@@ -1,20 +1,25 @@
+use std::collections::HashMap;
 use crate::types::{ImageId};
 use async_trait::async_trait;
 use lru::LruCache;
 use std::num::NonZeroUsize;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Storage to cache original image files, receiving from base api
 
 #[async_trait]
 pub trait Storage {
-    async fn get(&mut self, image_id: ImageId) -> Option<&Vec<u8>>;
+    async fn get(& self, image_id: ImageId) -> Option<Arc<Vec<u8>>>;
 
     async fn set(&mut self, image_id: ImageId, data: &Vec<u8>);
+
+    // async fn background(&mut self);
 }
 
 /// Storage implementation with inmemory files caching
 pub struct CachingStorage {
-    cache: LruCache<String, Vec<u8>>,
+    cache: HashMap<String, Arc<Vec<u8>>>,
 }
 
 impl CachingStorage {
@@ -22,18 +27,18 @@ impl CachingStorage {
         let capacity = capacity.unwrap_or(NonZeroUsize::new(256).unwrap());
 
         CachingStorage {
-            cache: LruCache::new(capacity),
+            cache: HashMap::with_capacity(capacity.into()),
         }
     }
 }
 
 #[async_trait]
 impl Storage for CachingStorage {
-    async fn get(&mut self, image_id: ImageId) -> Option<&Vec<u8>> {
-        self.cache.get(&image_id)
+    async fn get(& self, image_id: ImageId) -> Option<Arc<Vec<u8>>> {
+        self.cache.get(&image_id).cloned()
     }
 
     async fn set(&mut self, image_id: ImageId, data: &Vec<u8>) {
-        self.cache.put(image_id, data.clone());
+        self.cache.insert(image_id, Arc::new(data.clone()));
     }
 }
