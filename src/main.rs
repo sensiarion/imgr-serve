@@ -74,7 +74,7 @@ fn main() {
             .route("/images/{id}", put(images::preload_image))
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::GATEWAY_TIMEOUT,
-                Duration::from_secs(10),
+                Duration::from_secs(30),
             ))
             .layer(TraceLayer::new_for_http())
             .with_state(Arc::new(config));

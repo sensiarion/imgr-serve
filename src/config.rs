@@ -1,11 +1,20 @@
 use crate::processed_image_cache::MemoryProcessedImageCache;
 use crate::processing::Processor;
 use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
-use crate::storage::CachingStorage;
+use crate::storage::{CachingStorage, PersistentStorage, Storage};
 use envconfig;
 use envconfig::Envconfig;
 use std::num::NonZeroUsize;
+use std::path::Path;
 use std::sync::Arc;
+use log::info;
+use strum::{Display, EnumString};
+
+#[derive(Clone, EnumString,Display)]
+pub enum StorageImplementation {
+    InMemory,
+    Persistent,
+}
 
 // TODO add prefixes before release
 #[derive(Envconfig)]
@@ -22,6 +31,9 @@ struct EnvConfig {
 
     #[envconfig(from = "API_KEY", default = "")]
     pub api_key: String,
+
+    #[envconfig(from = "STORAGE_IMPLEMENTATION", default = "InMemory")]
+    pub storage_implementation: StorageImplementation,
 
     /// Count of original images cached in memory
     #[envconfig(from = "STORAGE_CACHE_SIZE", default = "256")]
@@ -52,17 +64,38 @@ impl Config {
 
         // TODO specify cache size via env
         // TODO choose storage/cache backends via env
-        let storage = CachingStorage::new(Some(
-            NonZeroUsize::new(env_conf.storage_cache_size)
-                .unwrap_or(NonZeroUsize::new(256).unwrap()),
-        ));
+
+        // TODO single persistentdb for storage/cache
+        // TODO db path in env
+
+        let storage_size = NonZeroUsize::new(env_conf.storage_cache_size)
+            .unwrap_or(NonZeroUsize::new(256).unwrap());
+
+        info!("Using {} storage",env_conf.storage_implementation);
+        let storage: Arc<tokio::sync::RwLock<dyn Storage + Send + Sync>> =
+                match env_conf.storage_implementation {
+                    StorageImplementation::InMemory => {
+
+                        Arc::new(tokio::sync::RwLock::with_max_readers(
+                            CachingStorage::new(Some(storage_size)),
+                            1024,
+                        ))
+                    }
+                    StorageImplementation::Persistent => {
+                        Arc::new(tokio::sync::RwLock::with_max_readers(
+                            PersistentStorage::new(Box::from(Path::new("./db")), Some(storage_size)),
+                            1024,
+                        ))
+                    }
+                };
+
         let cache = MemoryProcessedImageCache::new(Some(
             NonZeroUsize::new(env_conf.processing_cache_size)
                 .unwrap_or(NonZeroUsize::new(1024).unwrap()),
         ));
 
         let processor = Processor::new(
-            Arc::new(tokio::sync::RwLock::with_max_readers(storage, 1024)),
+            storage,
             Arc::new(tokio::sync::RwLock::with_max_readers(cache, 1024)),
             base_file_api,
         );

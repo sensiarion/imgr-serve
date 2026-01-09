@@ -23,6 +23,8 @@ percent-encoding = "2.3.2"
 sanitize-filename = "0.6.0"
 quick_cache = "0.6.18"
 tower-http = { version = "0.6.8", features = ["timeout", "trace"] }
+fjall = "3.0.1"
+strum = { version = "0.27.2", features = ["derive"] }
 
 [profile.release]
 debug = true
