@@ -11,6 +11,7 @@ mod types;
 use crate::config::Config;
 use crate::filename_extractor::FileNameExtractor;
 use crate::processing::ProcessingErrorType;
+use crate::types::{serve_background, BackgroundService};
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, Response, StatusCode};
@@ -20,9 +21,15 @@ use axum::{routing::get, Json, Router};
 use image_processing::ProcessingParams;
 use image_types::{Extensions, MimeType};
 use log::{debug, info};
+use sanitize_filename::sanitize;
 use serde_json::json;
 use std::sync::Arc;
-use sanitize_filename::sanitize;
+use std::time::Duration;
+use tokio::signal;
+use tokio::sync::RwLock;
+use tokio::task::JoinSet;
+use tower_http::timeout::TimeoutLayer;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -38,13 +45,8 @@ async fn serve_file(
     let image_id = sanitize(image_id);
     info!("Getting img {}", image_id);
 
-    let result = state
-        .processor
-        .get(image_id.clone(), query.0.clone())
-        .await;
+    let result = state.processor.get(image_id.clone(), query.0.clone()).await;
     debug!("processed image {}. Generating response", &image_id);
-
-    // TODO: fix double unwrap for extension (should to it here and then pass into handler)
 
     let response = match result {
         Ok(img) => Response::builder()
@@ -131,8 +133,8 @@ fn main() {
     // Configure rayon's global thread pool to use all available CPU cores
     // This ensures fast_image_resize can utilize all cores for parallel processing
     let num_threads = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(8);
+        .map(|n| n.get() + 2)
+        .unwrap_or(8 + 2);
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build_global()
@@ -151,10 +153,18 @@ fn main() {
         let config = Config::from_env();
         let (host, port) = (config.host.clone(), config.port.clone());
 
+        let background_services = config.processor.get_background_services();
+        let background_tasks_runner = serve_background(background_services.clone()).await;
+
         let app = Router::new()
             .route("/", get(|| async { "Hello, World!" }))
             .route("/images/{id}", get(serve_file))
             .route("/images/{id}", put(preload_image))
+            .layer(TimeoutLayer::with_status_code(
+                StatusCode::GATEWAY_TIMEOUT,
+                Duration::from_secs(10),
+            ))
+            .layer(TraceLayer::new_for_http())
             .with_state(Arc::new(config));
 
         info!("Running server on http://{}:{}", host, port);
@@ -162,6 +172,57 @@ fn main() {
         let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
             .await
             .unwrap();
-        axum::serve(listener, app).await.unwrap();
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown_signal(
+                background_services,
+                background_tasks_runner,
+            ))
+            .await
+            .unwrap();
     });
+}
+
+async fn shutdown_signal(
+    background_services: Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>>,
+    background_task_runner: JoinSet<()>,
+) {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(unix)]
+    let interrupt = async {
+        signal::unix::signal(signal::unix::SignalKind::interrupt())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    #[cfg(not(unix))]
+    let interrupt = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+        _ = interrupt => {},
+    }
+
+    for s in background_services.iter() {
+        let mut service = s.write().await;
+        service.stop().await;
+    }
+    background_task_runner.join_all().await;
 }

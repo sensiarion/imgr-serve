@@ -4,11 +4,12 @@ use crate::image_types::{Extensions, IntoImageFormat};
 use crate::processed_image_cache::ProcessedImagesCache;
 use crate::proxying_images::FileApiBackend;
 use crate::storage::Storage;
-use crate::types::{ImageContainer, ImageId};
+use crate::types::{BackgroundService, ImageContainer, ImageId};
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::RwLock;
 use tokio::task::spawn_blocking;
 use tracing::instrument;
 
@@ -60,6 +61,10 @@ impl Processor {
             cache,
             file_api,
         }
+    }
+
+    pub fn get_background_services(&self) -> Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>> {
+        vec![self.cache.clone(), self.storage.clone()]
     }
 
     /// Determine image format, from supporting by formatting lib
@@ -136,7 +141,7 @@ impl Processor {
                         }
                         Some(_) => {
                             debug!("Found image {} in storage, start processing", image_id);
-                            return self._process_image(image_id, &orig_image, params).await;
+                            return self._process_image(image_id, orig_image, params).await;
                         }
                     }
                 }
@@ -182,7 +187,8 @@ impl Processor {
                     storage_guard.set(image_id.clone(), &orig_image).await;
                 }
 
-                self._process_image(image_id, &orig_image, params).await
+                self._process_image(image_id, Arc::new(orig_image), params)
+                    .await
             }
         }
     }
@@ -190,14 +196,16 @@ impl Processor {
     /// Fully process image and puts it in all caches (storage + processing cache)
     ///
     /// * `image_id` - should be only the **original** image (cause it's passing into storage cache)
-    #[instrument(skip(self, original_image), fields(image_id = %image_id))]
     pub async fn _process_image(
         &self,
         image_id: ImageId,
-        original_image: &Vec<u8>,
+        original_image: Arc<Vec<u8>>,
         params: ProcessingParams,
     ) -> Result<Arc<ImageContainer>, ProcessingError> {
-        let img_format = self.get_image_format(original_image);
+        let params_clone = params.clone();
+        let resize_start = Instant::now();
+
+        let img_format = self.get_image_format(original_image.as_ref());
         if img_format.is_none() {
             return Err(ProcessingError::new(
                 ProcessingErrorType::UnsupportingExtension,
@@ -205,11 +213,13 @@ impl Processor {
             ));
         }
 
-        let img = image::load_from_memory_with_format(original_image, img_format.unwrap()).unwrap();
-
-        let params_clone = params.clone();
-        let resize_start = Instant::now();
+        let original_image_clone = original_image.clone();
         let result = spawn_blocking(move || {
+            let original_image = original_image_clone;
+            let img =
+                image::load_from_memory_with_format(original_image.as_ref(), img_format.unwrap())
+                    .unwrap();
+
             let params = params_clone;
             let resize_op_start = Instant::now();
             let resized = image_processing::resize::<DynamicImage>(
