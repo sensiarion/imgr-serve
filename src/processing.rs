@@ -45,15 +45,15 @@ impl ProcessingError {
 }
 
 pub struct Processor {
-    storage: Arc<tokio::sync::RwLock<dyn Storage + Send + Sync>>,
-    cache: Arc<tokio::sync::RwLock<dyn ProcessedImagesCache + Send + Sync>>,
+    storage: Arc<RwLock<dyn Storage + Send + Sync>>,
+    cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
     file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
 }
 
 impl Processor {
     pub fn new(
-        storage: Arc<tokio::sync::RwLock<dyn Storage + Send + Sync>>,
-        cache: Arc<tokio::sync::RwLock<dyn ProcessedImagesCache + Send + Sync>>,
+        storage: Arc<RwLock<dyn Storage + Send + Sync>>,
+        cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
         file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
     ) -> Self {
         Processor {

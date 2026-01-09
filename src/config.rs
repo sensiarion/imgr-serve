@@ -4,7 +4,8 @@ use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
 use crate::storage::CachingStorage;
 use envconfig;
 use envconfig::Envconfig;
-use std::sync::{Arc};
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 // TODO add prefixes before release
 #[derive(Envconfig)]
@@ -21,6 +22,14 @@ struct EnvConfig {
 
     #[envconfig(from = "API_KEY", default = "")]
     pub api_key: String,
+
+    /// Count of original images cached in memory
+    #[envconfig(from = "STORAGE_CACHE_SIZE", default = "256")]
+    pub storage_cache_size: usize,
+
+    /// Count of processed images (after resize, crop and etc) stored in memory
+    #[envconfig(from = "PROCESSING_CACHE_SIZE", default = "1024")]
+    pub processing_cache_size: usize,
 }
 
 pub struct Config {
@@ -43,13 +52,19 @@ impl Config {
 
         // TODO specify cache size via env
         // TODO choose storage/cache backends via env
-        let storage = CachingStorage::new(None);
-        let cache = MemoryProcessedImageCache::new(None);
+        let storage = CachingStorage::new(Some(
+            NonZeroUsize::new(env_conf.storage_cache_size)
+                .unwrap_or(NonZeroUsize::new(256).unwrap()),
+        ));
+        let cache = MemoryProcessedImageCache::new(Some(
+            NonZeroUsize::new(env_conf.processing_cache_size)
+                .unwrap_or(NonZeroUsize::new(1024).unwrap()),
+        ));
 
         let processor = Processor::new(
-            Arc::new(tokio::sync::RwLock::with_max_readers(storage,1024)),
+            Arc::new(tokio::sync::RwLock::with_max_readers(storage, 1024)),
             Arc::new(tokio::sync::RwLock::with_max_readers(cache, 1024)),
-            base_file_api
+            base_file_api,
         );
 
         Config {
