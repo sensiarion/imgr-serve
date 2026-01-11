@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  imgr-serve:
+    image: imgr-serve:latest
+    # Uncomment to build from local source instead of using pre-built image
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3021:3021"
+    env_file:
+      - .env
+    volumes:
+      # Mount persistent storage directory if using Persistent storage implementation
+      - imgr-serve_data:/app/data
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3021
+    networks:
+      - imgr-serve_network
+
+volumes:
+  imgr-serve_data:
+    driver: local
+
+networks:
+  imgr-serve_network:
+    driver: bridge
+

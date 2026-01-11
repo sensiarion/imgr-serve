@@ -1,0 +1,15 @@
+target/
+.idea/
+*.jpg
+*.png
+.env
+*temp*
+.img_serve/
+.git/
+.gitignore
+README.md
+docs/
+*.sh
+*.py
+*.txt
+

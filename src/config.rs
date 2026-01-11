@@ -56,7 +56,7 @@ struct EnvConfig {
     pub processing_cache_size: usize,
 
     /// Persistent db location (directory) for both processing and storage cache
-    #[envconfig(from = "PERSISTENT_STORAGE_DIR", default = ".img_serve")]
+    #[envconfig(from = "PERSISTENT_STORAGE_DIR", default = ".imgr-serve")]
     pub persistent_storage_dir: String,
 }
 

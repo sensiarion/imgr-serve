@@ -1,5 +1,5 @@
 [package]
-name = "img_serve"
+name = "imgr-serve"
 version = "0.1.0"
 edition = "2024"
 
