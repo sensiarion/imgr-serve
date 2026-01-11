@@ -1,6 +1,5 @@
 use crate::image_processing::ProcessingParams;
 use crate::persistent_store::{PersistSpace, PersistentStore};
-use crate::storage::Storage;
 use crate::types::{BackgroundService, ImageContainer, ImageId};
 use async_trait::async_trait;
 use image::EncodableLayout;

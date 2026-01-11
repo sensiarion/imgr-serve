@@ -1,17 +1,59 @@
-use std::sync::Arc;
-use axum::extract::{Path, Query, State};
-use axum::response::IntoResponse;
-use sanitize_filename::sanitize;
-use log::{debug, info};
-use axum::http::{header, HeaderMap, Response, StatusCode};
-use axum::body::Body;
-use serde_json::json;
-use axum::Json;
 use crate::config::Config;
 use crate::filename_extractor::FileNameExtractor;
 use crate::image_processing::ProcessingParams;
 use crate::image_types::{Extensions, MimeType};
 use crate::processing::ProcessingErrorType;
+use axum::body::Body;
+use axum::extract::{Path, Query, State};
+use axum::http::{header, HeaderMap, HeaderValue, Response, StatusCode};
+use axum::response::IntoResponse;
+use axum::Json;
+use http::response::Builder;
+use log::{debug, info};
+use sanitize_filename::sanitize;
+use serde_json::json;
+use std::fmt::format;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
+
+/// Specify caching headers for serving files
+fn caching_headers(builder: Builder) -> Builder {
+    // TODO: pass cache policy via config
+    // For user content (profile pictures):
+    //
+    // Use max-age=86400 (24h) + strong ETag
+    //
+    // Enable If-None-Match checks
+
+    // 1 year
+    let duration = Duration::new(60*60*24*365, 0);
+    builder
+        .header(
+            header::CACHE_CONTROL,
+            format!("public, max-age={}, immutable", duration.as_secs()),
+        )
+        .header(
+            header::EXPIRES,
+            httpdate::fmt_http_date(SystemTime::now() + duration),
+        )
+}
+
+fn content_disposition_header(filename: Option<String>, extensions: Extensions) -> HeaderValue {
+    let full_filename = format!(
+        "{}.{}",
+        filename
+            .unwrap_or("image".to_string())
+            .replace("\"", "\\\""),
+        extensions.name()
+    );
+    format!(
+        "inline; filename=\"{}\"; filename*=UTF-8''{}",
+        &full_filename,
+        urlencoding::encode(full_filename.as_str())
+    )
+    .parse()
+    .unwrap()
+}
 
 /// Serve images as static files
 ///
@@ -28,23 +70,18 @@ pub async fn serve_file(
     debug!("processed image {}. Generating response", &image_id);
 
     let response = match result {
-        Ok(img) => Response::builder()
-            .status(200)
+        Ok(img) => caching_headers(Response::builder())
+            .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, img.extension.mime_type())
             .header(
                 header::CONTENT_DISPOSITION,
-                // TODO: rewrite to support utf-8 file names
-                format!(
-                    "attachment; filename=\"{}.{}\"",
-                    img.filename.clone().unwrap_or("image".to_string()),
-                    Extensions::Webp.name()
-                ),
+                content_disposition_header(img.filename.clone(), Extensions::Webp),
             )
             .body(Body::from(img.data.as_slice().to_owned())),
         Err(err) => {
             let status = match err.err_type {
-                ProcessingErrorType::NotFound => 404,
-                _ => 400,
+                ProcessingErrorType::NotFound => StatusCode::NOT_FOUND,
+                _ => StatusCode::BAD_REQUEST.into(),
             };
             Response::builder()
                 .status(status)
