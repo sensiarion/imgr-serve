@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.82-slim as builder
+FROM rust:1.92.0-slim-trixie AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,10 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 
 # Build for release
-RUN cargo build --release
+# Disable debug symbols for Docker builds (override Cargo.toml profile setting)
+ENV CARGO_PROFILE_RELEASE_DEBUG=0
+RUN cargo build
+RUN cargo build --release --locked
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -32,6 +35,7 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /app/target/release/imgr-serve /usr/local/bin/imgr-serve
 
 # Create directory for persistent storage
+ENV PERSISTENT_STORAGE_DIR=/app/data
 RUN mkdir -p /app/data
 
 # Expose port
