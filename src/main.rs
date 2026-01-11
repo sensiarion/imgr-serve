@@ -1,5 +1,3 @@
-#![feature(arbitrary_self_types)]
-
 mod config;
 mod filename_extractor;
 mod image_processing;
