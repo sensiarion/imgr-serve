@@ -18,7 +18,6 @@ COPY src ./src
 # Build for release
 # Disable debug symbols for Docker builds (override Cargo.toml profile setting)
 ENV CARGO_PROFILE_RELEASE_DEBUG=0
-RUN cargo build
 RUN cargo build --release --locked
 
 # Runtime stage
