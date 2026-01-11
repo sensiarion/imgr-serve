@@ -1,21 +1,23 @@
+#![feature(arbitrary_self_types)]
+
 mod config;
 mod filename_extractor;
 mod image_processing;
 mod image_types;
+mod persistent_store;
 mod processed_image_cache;
 mod processing;
 mod proxying_images;
 mod routes;
 mod storage;
 mod types;
-mod persistent_store;
 
 use crate::config::Config;
 use crate::types::{serve_background, BackgroundService};
-use axum::http::{StatusCode};
+use axum::http::StatusCode;
 use axum::routing::put;
 use axum::{routing::get, Router};
-use log::{info};
+use log::info;
 use routes::images;
 use std::sync::Arc;
 use std::time::Duration;
@@ -66,8 +68,11 @@ fn main() {
         let config = Config::from_env();
         let (host, port) = (config.host.clone(), config.port.clone());
 
+        let shutdown_channel = tokio::sync::watch::channel(false);
+
         let background_services = config.processor.get_background_services();
-        let background_tasks_runner = serve_background(background_services.clone()).await;
+        let background_tasks_runner =
+            serve_background(background_services.clone(), shutdown_channel.1).await;
 
         let app = Router::new()
             .route("/", get(|| async { "Hello, World!" }))
@@ -88,6 +93,7 @@ fn main() {
             .with_graceful_shutdown(shutdown_signal(
                 background_services,
                 background_tasks_runner,
+                shutdown_channel.0
             ))
             .await
             .unwrap();
@@ -97,6 +103,7 @@ fn main() {
 async fn shutdown_signal(
     background_services: Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>>,
     background_task_runner: JoinSet<()>,
+    shutdown_channel: tokio::sync::watch::Sender<bool>,
 ) {
     let ctrl_c = async {
         signal::ctrl_c()
@@ -136,5 +143,6 @@ async fn shutdown_signal(
         let mut service = s.write().await;
         service.stop().await;
     }
+    let _ = shutdown_channel.send(true);
     background_task_runner.join_all().await;
 }

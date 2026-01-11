@@ -1,9 +1,16 @@
-use fjall::{Keyspace, KeyspaceCreateOptions, Slice};
+use crate::storage::Storage;
+use crate::types::BackgroundService;
+use async_trait::async_trait;
+use fjall::{Keyspace, KeyspaceCreateOptions, PersistMode, Slice};
+use log::{debug, warn};
 use postcard::to_stdvec;
-use serde::{Serialize};
+use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
 use strum::{Display, EnumString};
+use tokio::sync::watch::Receiver;
 use tokio::task::spawn_blocking;
 
 #[derive(Debug, EnumString, Display)]
@@ -19,6 +26,7 @@ pub struct PersistentStore {
     db: fjall::Database,
     store_keyspace: Keyspace,
     cache_keyspace: Keyspace,
+
 }
 
 /// Expecting source image is about 2mb size
@@ -90,5 +98,63 @@ impl PersistentStore {
             .await
             .unwrap();
     }
+}
 
+pub struct StorageBackgroundAdapter {
+    store: Option<Arc<PersistentStore>>,
+    cancel_chan: (
+        tokio::sync::watch::Sender<bool>,
+        tokio::sync::watch::Receiver<bool>,
+    ),
+}
+
+impl StorageBackgroundAdapter {
+    pub fn new(store: Option<Arc<PersistentStore>>)->Self{
+
+        StorageBackgroundAdapter {
+            store,
+            cancel_chan: tokio::sync::watch::channel(false),
+        }
+    }
+}
+
+#[async_trait]
+impl BackgroundService for StorageBackgroundAdapter {
+    fn background_period(&self) -> Duration {
+        Duration::new(60, 0)
+    }
+
+    async fn background(&mut self) {
+        if self.store.is_none(){
+            return;
+        }
+        debug!("Flushing images to disk");
+        let store = self.store.clone();
+        let err = store.unwrap().db.persist(PersistMode::SyncAll);
+        if let Err(err) = err {
+            warn!(
+                "Failed to flush data to disk, got error: {}",
+                err.to_string()
+            )
+        }
+    }
+
+    fn cancel_token(&self) -> Receiver<bool> {
+        self.cancel_chan.1.clone()
+    }
+
+    async fn stop(&mut self) {
+        if self.store.is_none(){
+            return;
+        }
+        debug!("Flushing images to disk");
+        let store = self.store.clone();
+        let err = store.unwrap().db.persist(PersistMode::SyncAll);
+        if let Err(err) = err {
+            warn!(
+                "Failed to flush data to disk, got error: {}",
+                err.to_string()
+            )
+        }
+    }
 }

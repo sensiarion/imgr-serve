@@ -1,12 +1,14 @@
 use crate::image_processing;
 use crate::image_processing::{cast_to_extension, ProcessingParams};
 use crate::image_types::{Extensions, IntoImageFormat};
+use crate::persistent_store::{PersistentStore, StorageBackgroundAdapter};
 use crate::processed_image_cache::ProcessedImagesCache;
 use crate::proxying_images::FileApiBackend;
-use crate::storage::Storage;
+use crate::storage::{PersistentStorage, Storage};
 use crate::types::{BackgroundService, ImageContainer, ImageId};
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
+use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
@@ -48,6 +50,7 @@ pub struct Processor {
     storage: Arc<RwLock<dyn Storage + Send + Sync>>,
     cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
     file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
+    persistent_storage: Option<Arc<PersistentStore>>,
 }
 
 impl Processor {
@@ -55,16 +58,25 @@ impl Processor {
         storage: Arc<RwLock<dyn Storage + Send + Sync>>,
         cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
         file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
+        persistent_storage: Option<Arc<PersistentStore>>,
     ) -> Self {
         Processor {
             storage,
             cache,
             file_api,
+            persistent_storage,
         }
     }
 
     pub fn get_background_services(&self) -> Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>> {
-        vec![self.cache.clone(), self.storage.clone()]
+        let mut res: Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>> =
+            vec![self.cache.clone(), self.storage.clone()];
+
+        let store = self.persistent_storage.clone();
+        let adapter = StorageBackgroundAdapter::new(store);
+        res.push(Arc::new(RwLock::new(adapter)));
+
+        res
     }
 
     /// Determine image format, from supporting by formatting lib

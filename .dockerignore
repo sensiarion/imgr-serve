@@ -4,7 +4,7 @@ target/
 *.png
 .env
 *temp*
-.img_serve/
+.imgr-serve/
 .git/
 .gitignore
 README.md

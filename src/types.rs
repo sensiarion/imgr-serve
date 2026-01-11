@@ -1,15 +1,15 @@
 use crate::image_types::Extensions;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use tokio::sync::{watch, RwLock};
 use tokio::task::JoinSet;
 
 /// it may be uuid, or complex link with path, either will work as simple string
 pub type ImageId = String;
 
-#[derive(Clone,Serialize,Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ImageContainer {
     pub data: Box<Vec<u8>>,
     pub filename: Option<String>,
@@ -42,11 +42,13 @@ pub trait BackgroundService {
 
 pub async fn serve_background(
     services: Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>>,
+    mut cancel_token: tokio::sync::watch::Receiver<bool>,
 ) -> JoinSet<()> {
     let mut futures = JoinSet::new();
 
     for s in services.iter() {
         let service = s.clone();
+        let mut cancel_token = cancel_token.clone();
         futures.spawn(async move {
             let guard = service.read().await;
             let interval = guard.background_period();
@@ -63,6 +65,12 @@ pub async fn serve_background(
                         if *rx.borrow(){
                             break;
                         }
+                    }
+                    _ = cancel_token.changed() => {
+                        if *cancel_token.borrow(){
+                            break;
+                        }
+
                     }
                 }
             }

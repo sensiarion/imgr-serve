@@ -251,3 +251,6 @@ services:
 - [ ] Direct compression support
 - [ ] Clean up all TODOs from code
 - [ ] ETag support for dynamic content (and conditional requests)trol behaviour via config)
+- [x] flushing storage to disk (implement background ops)
+- [ ] persistent settings (on every transaction, in periods)
+- [ ] configurable flush periods

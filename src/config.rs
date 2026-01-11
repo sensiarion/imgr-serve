@@ -138,7 +138,7 @@ impl Config {
                 ProcessingCacheImplementation::Persistent => {
                     Arc::new(tokio::sync::RwLock::with_max_readers(
                         PersistentProcessedImageCache::new(
-                            persistent_store.unwrap(),
+                            persistent_store.clone().unwrap(),
                             Some(storage_size),
                         ),
                         1024,
@@ -146,7 +146,7 @@ impl Config {
                 }
             };
 
-        let processor = Processor::new(storage, cache, base_file_api);
+        let processor = Processor::new(storage, cache, base_file_api, persistent_store);
 
         Config {
             host: env_conf.host,
