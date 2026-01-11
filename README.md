@@ -1,53 +1,54 @@
-
-
 Кэширующий сервис для изображений.
 
 Забирает на себя всю рутину по отдаче файлов на фронт
 
-Функционал: 
+Функционал:
+Here's the rewritten backlog in English:
 
-
-- [x] поддержка проксирования запросов на изображения
-  - при отсутствии изображения в кэше мы ходим на основной бэкенд для его получения 
-- [x] раздаёт статику (только изображения), поддержка валидации входных файлов
-- [x] автоматически конвертирует изображения в нужный формат
-  - нужно лишь указать этот формат в ссылке ( по типу https://<server>/<image_id>.<extension>)
-- [x] поддерживает автоматическое масштабирование изображений на лету
-  - поведение по умолчанию - resize до выбранного размера, достаточно указать параметры `width`, `height`
-- [ ] ~~также доступны кроп (обрезка), для этого нужно указать параметр `mode=crop`~~
-  - в итоге там другой подход 
-- [ ] автоматически настраивает корректную раздачу для статики
-  - заголовки для кэширование (etag) 
-  - кэширование на стороне браузера (ttl)
-  - корректные типы (mime/type)
-- [x] кэширование в памяти
-- [ ] кэширование на диске?
-  - для кэширования можно хэшировать все передаваемые параметры в наименование, 
-  - что позволит таки быстро получать данные с диска  
-- [x] поддержка предварительной загрузки изображений (через auth токен)
-- [ ] готовый докер образ и примеры использования в compose
-- [ ] swagger документация
-- [ ] понятные и задокументированные ошибки
-- [ ] гибкие настройки через .env
-  - настройки уровня компресии 
-  - x настройки размера кэша (по кол-ву изображений, по кол-ву вариаций)
-  - x включение/отключение кэширования на диске
-- [ ] понятный readme с быстрым стартом и пояснением всех настроек
-  - отдельные пояснения за кэширование на диске 
-- [ ] поддержка S3 как бэкенда для персистентного хранения файлов
-  - спойлер, скорее всего не взлетит и быстрее работать с кэшом на лету
-  - в этом же пункте подразумеваем S3 как бэкенд для проксирования (если с ним есть какие-то проблемы)
-- [ ] бэнчмарки с проверкой разных режимов
-- [x] перейти на https://github.com/Cykooz/fast_image_resize для ресайза
-- [x] ~~поддержка адаптивного ресайза (сохранение соотношения сторон при передаче одного из размеров)~~
-  - ~~должно работать только при явном передачи type=adaptive~~
-  - crop также изменён под другой подход
-- [ ] поддержка различных результирующих форматов (не только webp)
-- [ ] поддержка redis кэша (для больших сборок)
-- [ ] отрефачить всё на image container, с момента получения файла
-- [ ] добавить проброс лог параметров на все логи (хранить request id, прокидывать image_id)
-- [x] добавить aspect ratio crop
-  - если исходное изображение имеет отличное от запрашиваевомого соотношение сторон, мы регулируем поведение через паметр 
-    - ratio_policy (resize, crop_center) 
-    - вычисляем спроецированное соотношение сторон и кропаем по центру изображения, а потом ресайзим
-- [ ] example сервер + benchmark для контроля производительности
+- [x] Support for request proxying to image sources
+    - When an image is not in cache, we fetch it from the primary backend
+- [x] Serve static content (images only), with input file validation support
+- [x] Automatically convert images to requested format
+    - Just specify the format in the URL (e.g., https://<server>/<image_id>.<extension>)
+- [x] Support on-the-fly image scaling
+    - Default behavior - resize to specified dimensions using `width`, `height` parameters
+- [ ] ~~Also support cropping, by specifying `mode=crop` parameter~~
+    - Different approach implemented instead
+- [x] Automatically configure proper static content delivery
+    - Caching headers (ETag)
+    - Browser-side caching (TTL)
+    - Correct MIME types
+- [x] In-memory caching
+- [x] Disk caching?
+    - ~~Cache by hashing all parameters into filenames,~~ implemented fjall embedded database instead (more efficient than direct file operations)
+    - Enables fast disk data retrieval
+- [x] Support for preloading images (via auth token)
+- [ ] Ready Docker image and usage examples in compose
+- [ ] Swagger/OpenAPI documentation
+- [ ] Clear and documented error messages
+- [x] Flexible configuration via .env
+    - Compression level settings
+    - x Cache size settings (by image count, by variation count)
+    - x Enable/disable disk caching
+- [ ] Clear README with quick start and all configuration explanations
+    - Separate explanations for disk caching
+- [ ] Support S3 as backend for persistent file storage
+    - Note: Might not be optimal; on-the-fly cache processing likely faster
+    - Also implies S3 as proxy source backend (if primary sources have issues)
+- [ ] Benchmarks for different operational modes
+- [x] Switch to https://github.com/Cykooz/fast_image_resize for resizing
+- [x] ~~Support adaptive resizing (maintain aspect ratio when only one dimension specified)~~
+    - ~~Only works when explicitly passing `type=adaptive`~~
+    - Crop also changed to different approach
+- [ ] Support various output formats (not just WebP)
+- [ ] Support Redis cache (for larger deployments)
+- [ ] ~~Refactor everything to use image container from file receipt~~
+- [x] Add context parameter propagation to all logs (store request ID, pass image_id)
+- [x] Add aspect ratio crop support
+    - If source image has different aspect ratio than requested, control behavior via parameter:
+        - `ratio_policy` (resize, crop_center)
+        - Calculate projected aspect ratio and crop from center, then resize
+- [ ] Example server + benchmark for performance monitoring
+- [ ] Direct compression support
+- [ ] Clean up all TODOs from code
+- [ ] ETag support for dynamic content (and conditional requests)trol behaviour via config)
