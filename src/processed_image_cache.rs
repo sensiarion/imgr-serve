@@ -1,9 +1,14 @@
 use crate::image_processing::ProcessingParams;
+use crate::persistent_store::{PersistSpace, PersistentStore};
+use crate::storage::Storage;
 use crate::types::{BackgroundService, ImageContainer, ImageId};
 use async_trait::async_trait;
+use image::EncodableLayout;
+use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch::Receiver;
 
 /// Cache for processed images with different params
 #[async_trait]
@@ -69,6 +74,81 @@ impl BackgroundService for MemoryProcessedImageCache {
     async fn background(&mut self) {}
 
     fn cancel_token(&self) -> tokio::sync::watch::Receiver<bool> {
+        self.cancel_chan.1.clone()
+    }
+
+    async fn stop(&mut self) {
+        let _ = self.cancel_chan.0.send(true);
+    }
+}
+
+/// Inmemory cache for processed images
+pub struct PersistentProcessedImageCache {
+    store: Arc<PersistentStore>,
+    cancel_chan: (
+        tokio::sync::watch::Sender<bool>,
+        tokio::sync::watch::Receiver<bool>,
+    ),
+}
+
+impl PersistentProcessedImageCache {
+    pub fn new(store: Arc<PersistentStore>, capacity: Option<NonZeroUsize>) -> Self {
+        PersistentProcessedImageCache {
+            store,
+            cancel_chan: tokio::sync::watch::channel(false),
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+struct CacheKey {
+    image_id: ImageId,
+    params: ProcessingParams,
+}
+
+#[async_trait]
+impl ProcessedImagesCache for PersistentProcessedImageCache {
+    async fn get(
+        &self,
+        image_id: ImageId,
+        params: ProcessingParams,
+    ) -> Option<Arc<ImageContainer>> {
+        let key = CacheKey { image_id, params };
+
+        let v = self.store.get(PersistSpace::Cache, &key).await;
+
+        match v {
+            None => None,
+            Some(v) => Some(Arc::new(
+                postcard::from_bytes::<ImageContainer>(v.as_bytes()).unwrap(),
+            )),
+        }
+    }
+
+    async fn set(
+        &mut self,
+        image_id: ImageId,
+        params: ProcessingParams,
+        image: Arc<ImageContainer>,
+    ) {
+        let key = CacheKey { image_id, params };
+
+        self.store
+            .set(PersistSpace::Cache, &key, image.as_ref())
+            .await;
+    }
+}
+
+#[async_trait]
+impl BackgroundService for PersistentProcessedImageCache {
+    fn background_period(&self) -> Duration {
+        Duration::new(60, 0)
+    }
+
+    // Persistent cache cleaning up by itself
+    async fn background(&mut self) {}
+
+    fn cancel_token(&self) -> Receiver<bool> {
         self.cancel_chan.1.clone()
     }
 

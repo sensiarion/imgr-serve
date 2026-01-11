@@ -2,13 +2,14 @@ use crate::image_types::Extensions;
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{watch, RwLock};
 use tokio::task::JoinSet;
 
 /// it may be uuid, or complex link with path, either will work as simple string
 pub type ImageId = String;
 
-#[derive(Clone)]
+#[derive(Clone,Serialize,Deserialize)]
 pub struct ImageContainer {
     pub data: Box<Vec<u8>>,
     pub filename: Option<String>,

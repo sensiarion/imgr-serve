@@ -8,6 +8,7 @@ mod proxying_images;
 mod routes;
 mod storage;
 mod types;
+mod persistent_store;
 
 use crate::config::Config;
 use crate::types::{serve_background, BackgroundService};

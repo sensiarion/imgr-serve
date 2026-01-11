@@ -4,4 +4,4 @@
 *.png
 .env
 *temp*
-db/
+.img_serve/
