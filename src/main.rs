@@ -73,7 +73,6 @@ fn main() {
             serve_background(background_services.clone(), shutdown_channel.1).await;
 
         let app = Router::new()
-            .route("/", get(|| async { "Hello, World!" }))
             .route("/images/{id}", get(images::serve_file))
             .route("/images/{id}", put(images::preload_image))
             .layer(TimeoutLayer::with_status_code(
