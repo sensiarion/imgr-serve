@@ -239,7 +239,7 @@ services:
 - [x] ~~Support adaptive resizing (maintain aspect ratio when only one dimension specified)~~
     - ~~Only works when explicitly passing `type=adaptive`~~
     - Crop also changed to different approach
-- [ ] Support various output formats (not just WebP)
+- [ ] Support various output formats (not just WebP, also avif, jpg, png)
 - [ ] Support Redis cache (for larger deployments)
 - [ ] ~~Refactor everything to use image container from file receipt~~
 - [x] Add context parameter propagation to all logs (store request ID, pass image_id)
@@ -250,7 +250,11 @@ services:
 - [ ] Example server + benchmark for performance monitoring
 - [ ] Direct compression support
 - [ ] Clean up all TODOs from code
-- [ ] ETag support for dynamic content (and conditional requests)trol behaviour via config)
+- [ ] ETag support for dynamic content (and conditional requests) control behaviour via config)
+  - also add expiration option for storing images, to re-request it from original file server 
 - [x] flushing storage to disk (implement background ops)
 - [ ] persistent settings (on every transaction, in periods)
 - [ ] configurable flush periods
+- [ ] restrict maximum sizes for concrete image via env var
+- [ ] optional whitelist of allowed sizes
+- [ ] pass resize params (multiple) to preload to fully warm up before serve
