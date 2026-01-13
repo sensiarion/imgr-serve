@@ -298,7 +298,11 @@ impl Processor {
         let _storage = self.storage.clone();
         let mut storage = _storage.write().await;
 
-        storage.set(image_id, &data).await;
+        storage.set(image_id.clone(), &data).await;
+
+        let _cache = self.cache.clone();
+        let mut cache = _cache.write().await;
+        cache.remove(image_id).await;
 
         Ok(())
     }

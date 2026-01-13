@@ -12,6 +12,8 @@ pub trait Storage: BackgroundService {
     async fn get(&self, image_id: ImageId) -> Option<Arc<Vec<u8>>>;
 
     async fn set(&mut self, image_id: ImageId, data: &Vec<u8>);
+
+    async fn remove(&mut self, image_id: ImageId);
 }
 
 /// Storage implementation with inmemory files caching
@@ -42,6 +44,10 @@ impl Storage for CachingStorage {
 
     async fn set(&mut self, image_id: ImageId, data: &Vec<u8>) {
         self.cache.insert(image_id, Arc::new(data.clone()));
+    }
+
+    async fn remove(&mut self, image_id: ImageId){
+        self.cache.remove(&image_id);
     }
 }
 
@@ -94,6 +100,10 @@ impl Storage for PersistentStorage {
 
     async fn set(&mut self, image_id: ImageId, data: &Vec<u8>) {
         self.store.set(PersistSpace::Storage, &image_id, data).await;
+    }
+
+    async fn remove(&mut self, image_id: ImageId){
+        self.store.remove(PersistSpace::Storage, &image_id).await;
     }
 }
 

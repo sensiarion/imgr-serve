@@ -1,12 +1,17 @@
 # imgr-serve
 
-Service for serving static images with automatic resizing and caching. Designed for small to medium projects, this service handles all image delivery routines, automatically resizing images based on width and height parameters passed from your frontend.
+Service for serving static images with automatic resizing and caching. Designed for small to medium projects, this
+service handles all image delivery routines, automatically resizing images based on width and height parameters passed
+from your frontend.
 
 ## Overview
 
-imgr-serve is a single-node image proxy service that automatically resizes images on-the-fly, converts formats, and provides efficient caching. It's designed to offload image processing and delivery from your main application, reducing server load and improving response times.
+imgr-serve is a single-node image proxy service that automatically resizes images on-the-fly, converts formats, and
+provides efficient caching. It's designed to offload image processing and delivery from your main application, reducing
+server load and improving response times.
 
 **Example Usage:**
+
 ```bash
 # Request an image with automatic resizing (outputs WebP)
 curl "http://localhost:3021/images/photo123?width=800&height=600"
@@ -24,23 +29,27 @@ curl -X PUT "http://localhost:3021/images/photo123" \
 ### Quick Start with Docker Compose
 
 1. **Clone the repository:**
+
 ```bash
 git clone <repository-url>
 cd imgr-serve
 ```
 
 2. **Create environment file:**
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
 3. **Start the service:**
+
 ```bash
 docker-compose up -d
 ```
 
 4. **Test the service:**
+
 ```bash
 # Health check
 curl http://localhost:3021/
@@ -52,16 +61,19 @@ curl "http://localhost:3021/images/your-image-id.jpg?width=800&height=600"
 ### Manual Build
 
 1. **Install Rust:**
+
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 2. **Build the project:**
+
 ```bash
 cargo build --release
 ```
 
 3. **Run the service:**
+
 ```bash
 # Set environment variables
 export HOST=0.0.0.0
@@ -137,11 +149,13 @@ The service is configured via environment variables. See `.env.example` for all 
 Serve an image with optional processing parameters.
 
 **Query Parameters:**
+
 - `width`: Target width in pixels
 - `height`: Target height in pixels
 - `ratio_policy`: How to handle aspect ratio differences (`resize` or `crop_center`)
 
 **Example:**
+
 ```bash
 GET /images/photo123.jpg?width=800&height=600&ratio_policy=crop_center
 ```
@@ -151,9 +165,11 @@ GET /images/photo123.jpg?width=800&height=600&ratio_policy=crop_center
 Preload an image into cache. Requires `X-API-Key` header.
 
 **Headers:**
+
 - `X-API-Key`: Your configured API key
 
 **Example:**
+
 ```bash
 PUT /images/photo123.jpg
 X-API-Key: your-secret-key
@@ -164,7 +180,8 @@ Content-Type: image/jpeg
 
 ## Architecture
 
-This microservice is designed as a single-node solution, but can work with shared storage backends (database, Redis, S3) in future versions. The current implementation uses:
+This microservice is designed as a single-node solution, but can work with shared storage backends (database, Redis, S3)
+in future versions. The current implementation uses:
 
 - **In-memory caching**: Fast access for frequently requested images
 - **Persistent disk storage**: Optional fjall embedded database for durable caching
@@ -192,9 +209,11 @@ docker build -t imgr-serve:latest .
 
 ## Production Deployment
 
-The service includes Docker and Docker Compose configurations for easy deployment. GitHub Actions automatically builds and publishes Docker images to GitHub Container Registry on pushes to main branch and version tags.
+The service includes Docker and Docker Compose configurations for easy deployment. GitHub Actions automatically builds
+and publishes Docker images to GitHub Container Registry on pushes to main branch and version tags.
 
 **Using the published image:**
+
 ```yaml
 services:
   imgr-serve:
@@ -204,6 +223,8 @@ services:
 
 ## Feature Roadmap
 
+### Features
+
 - [x] Support for request proxying to image sources
     - When an image is not in cache, we fetch it from the primary backend
 - [x] Serve static content (images only), with input file validation support
@@ -211,47 +232,37 @@ services:
     - Just specify the format in the URL (e.g., https://<server>/<image_id>.<extension>)
 - [x] Support on-the-fly image scaling
     - Default behavior - resize to specified dimensions using `width`, `height` parameters
-- [ ] ~~Also support cropping, by specifying `mode=crop` parameter~~
-    - Different approach implemented instead
 - [x] Automatically configure proper static content delivery
     - Caching headers (ETag)
     - Browser-side caching (TTL)
     - Correct MIME types
 - [x] In-memory caching
 - [x] Disk caching?
-    - ~~Cache by hashing all parameters into filenames,~~ implemented fjall embedded database instead (more efficient than direct file operations)
+    - ~~Cache by hashing all parameters into filenames,~~ implemented fjall embedded database instead (more efficient
+      than direct file operations)
     - Enables fast disk data retrieval
 - [x] Support for preloading images (via auth token)
 - [x] Ready Docker image and usage examples in compose
-- [ ] Swagger/OpenAPI documentation
-- [ ] Clear and documented error messages
 - [x] Flexible configuration via .env
     - Compression level settings
     - x Cache size settings (by image count, by variation count)
     - x Enable/disable disk caching
 - [x] Clear README with quick start and all configuration explanations
     - Separate explanations for disk caching
-- [ ] Support S3 as backend for persistent file storage
-    - Note: Might not be optimal; on-the-fly cache processing likely faster
-    - Also implies S3 as proxy source backend (if primary sources have issues)
-- [ ] Benchmarks for different operational modes
 - [x] Switch to https://github.com/Cykooz/fast_image_resize for resizing
 - [x] ~~Support adaptive resizing (maintain aspect ratio when only one dimension specified)~~
     - ~~Only works when explicitly passing `type=adaptive`~~
     - Crop also changed to different approach
-- [ ] Support various output formats (not just WebP, also avif, jpg, png)
-- [ ] Support Redis cache (for larger deployments)
-- [ ] ~~Refactor everything to use image container from file receipt~~
 - [x] Add context parameter propagation to all logs (store request ID, pass image_id)
 - [x] Add aspect ratio crop support
     - If source image has different aspect ratio than requested, control behavior via parameter:
         - `ratio_policy` (resize, crop_center)
         - Calculate projected aspect ratio and crop from center, then resize
-- [ ] Example server + benchmark for performance monitoring
+
 - [ ] Direct compression support
 - [ ] Clean up all TODOs from code
 - [ ] ETag support for dynamic content (and conditional requests) control behaviour via config)
-  - also add expiration option for storing images, to re-request it from original file server 
+    - also add expiration option for storing images, to re-request it from original file server
 - [x] flushing storage to disk (implement background ops)
 - [ ] persistent settings (on every transaction, in periods)
 - [ ] configurable flush periods
@@ -259,3 +270,27 @@ services:
 - [ ] optional whitelist of allowed sizes
 - [ ] pass resize params (multiple) to preload to fully warm up before serve
 - [ ] correct cache invalidation (recalc all resized images on updating image)
+    - x remove store entry on prefetch
+    - x remove processed cache entries on prefetch
+    - ttl for internal caches with expiring both store, processed cache
+        - env config for ttl (allow no expiring at all)
+        - ttl implementation will require another change of store api (at least for storage), need to implement data
+          layout robust to adding new attributes for values
+
+### Variability
+
+- [ ] Support various output formats (not just WebP, also avif, jpg, png)
+- [ ] Support Redis cache (for larger deployments)
+- [ ] Support S3 as backend for persistent file storage
+    - Note: Might not be optimal; on-the-fly cache processing likely faster
+    - Also implies S3 as proxy source backend (if primary sources have issues)
+    - S3 cache backend should lead to proxying image, cause of specified client cache policies
+
+### Usability
+
+- [ ] Swagger/OpenAPI documentation
+- [ ] Clear and documented error messages
+    - also clarify error messages on connecting to base api, it's not always clear (like "builder error on incorrect
+      url"")
+- [ ] Example server + benchmark for performance monitoring
+- [ ] Benchmarks for different operational modes

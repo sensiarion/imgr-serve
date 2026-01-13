@@ -26,7 +26,6 @@ pub struct PersistentStore {
     db: fjall::Database,
     store_keyspace: Keyspace,
     cache_keyspace: Keyspace,
-
 }
 
 /// Expecting source image is about 2mb size
@@ -98,6 +97,34 @@ impl PersistentStore {
             .await
             .unwrap();
     }
+
+    pub async fn remove_by_prefix<K>(&self, space: PersistSpace, prefix: &K)
+    where
+        K: Serialize + Send + Sync + 'static,
+    {
+        let keyspace = self.keyspace(space);
+
+        let key = to_stdvec(&prefix).unwrap();
+
+        spawn_blocking(move || {
+            for key in keyspace.prefix(key) {
+                let _ = keyspace.remove(key.key().unwrap());
+            }
+        })
+        .await
+        .unwrap();
+    }
+
+    pub async fn remove<K>(&self, space: PersistSpace, key: &K)
+    where
+        K: Serialize + Send + Sync + 'static,
+    {
+        let keyspace = self.keyspace(space);
+
+        let key = to_stdvec(&key).unwrap();
+
+        let _ = keyspace.remove(key);
+    }
 }
 
 pub struct StorageBackgroundAdapter {
@@ -109,8 +136,7 @@ pub struct StorageBackgroundAdapter {
 }
 
 impl StorageBackgroundAdapter {
-    pub fn new(store: Option<Arc<PersistentStore>>)->Self{
-
+    pub fn new(store: Option<Arc<PersistentStore>>) -> Self {
         StorageBackgroundAdapter {
             store,
             cancel_chan: tokio::sync::watch::channel(false),
@@ -125,7 +151,7 @@ impl BackgroundService for StorageBackgroundAdapter {
     }
 
     async fn background(&mut self) {
-        if self.store.is_none(){
+        if self.store.is_none() {
             return;
         }
         debug!("Flushing images to disk");
@@ -144,7 +170,7 @@ impl BackgroundService for StorageBackgroundAdapter {
     }
 
     async fn stop(&mut self) {
-        if self.store.is_none(){
+        if self.store.is_none() {
             return;
         }
         debug!("Flushing images to disk");
