@@ -258,3 +258,4 @@ services:
 - [ ] restrict maximum sizes for concrete image via env var
 - [ ] optional whitelist of allowed sizes
 - [ ] pass resize params (multiple) to preload to fully warm up before serve
+- [ ] correct cache invalidation (recalc all resized images on updating image)

@@ -60,7 +60,7 @@ impl FileApiBackend for SimpleFileApiBackend {
         if resp.is_err() {
             let err = resp.err().unwrap();
             debug!(
-                "Got error while processing image: {}. Err: {}",
+                "Got http error while trying to fetch image from file api: {}. Err: {}",
                 image_id, err
             );
             return Err(FileApiError::new(err.to_string(), None));

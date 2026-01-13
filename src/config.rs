@@ -58,6 +58,10 @@ struct EnvConfig {
     /// Persistent db location (directory) for both processing and storage cache
     #[envconfig(from = "PERSISTENT_STORAGE_DIR", default = ".imgr-serve")]
     pub persistent_storage_dir: String,
+
+    /// Client cache (in browser) duration (in seconds) for served images
+    #[envconfig(from = "CLIENT_CACHE_TTL", default = "31536000")]
+    pub client_cache_ttl: usize,
 }
 
 pub struct Config {
@@ -65,6 +69,8 @@ pub struct Config {
     pub port: u32,
     pub api_key: String,
     pub processor: Processor,
+
+    pub client_cache_ttl: usize,
 }
 
 impl Config {
@@ -153,6 +159,7 @@ impl Config {
             port: env_conf.port,
             api_key: env_conf.api_key,
             processor,
+            client_cache_ttl: env_conf.client_cache_ttl,
         }
     }
 }

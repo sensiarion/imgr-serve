@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 /// Specify caching headers for serving files
-fn caching_headers(builder: Builder) -> Builder {
+fn caching_headers(builder: Builder, cache_ttl: usize) -> Builder {
     // TODO: pass cache policy via config
     // For user content (profile pictures):
     //
@@ -26,7 +26,7 @@ fn caching_headers(builder: Builder) -> Builder {
     // Enable If-None-Match checks
 
     // 1 year
-    let duration = Duration::new(60*60*24*365, 0);
+    let duration = Duration::new(cache_ttl as u64, 0);
     builder
         .header(
             header::CACHE_CONTROL,
@@ -70,7 +70,7 @@ pub async fn serve_file(
     debug!("processed image {}. Generating response", &image_id);
 
     let response = match result {
-        Ok(img) => caching_headers(Response::builder())
+        Ok(img) => caching_headers(Response::builder(), state.client_cache_ttl)
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, img.extension.mime_type())
             .header(
