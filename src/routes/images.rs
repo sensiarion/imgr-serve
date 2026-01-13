@@ -7,12 +7,10 @@ use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, HeaderValue, Response, StatusCode};
 use axum::response::IntoResponse;
-use axum::Json;
 use http::response::Builder;
 use log::{debug, info};
 use sanitize_filename::sanitize;
 use serde_json::json;
-use std::fmt::format;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -55,6 +53,13 @@ fn content_disposition_header(filename: Option<String>, extensions: Extensions) 
     .unwrap()
 }
 
+fn api_response(status_code: StatusCode, detail: String) -> Result<Response<Body>, http::Error> {
+    Response::builder()
+        .status(status_code)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(json!({"detail": detail}).to_string()))
+}
+
 /// Serve images as static files
 ///
 /// If image is not existing, it will be attempted to fetch on configured base api
@@ -63,6 +68,13 @@ pub async fn serve_file(
     query: Query<ProcessingParams>,
     State(state): State<Arc<Config>>,
 ) -> impl IntoResponse {
+    if !state
+        .max_image_resize
+        .is_allowed_size(&query.width, &query.height)
+    {
+        return api_response(StatusCode::BAD_REQUEST, "Extension too big".to_string()).unwrap();
+    }
+
     let image_id = sanitize(image_id);
     info!("Getting img {}", image_id);
 
@@ -83,10 +95,7 @@ pub async fn serve_file(
                 ProcessingErrorType::NotFound => StatusCode::NOT_FOUND,
                 _ => StatusCode::BAD_REQUEST.into(),
             };
-            Response::builder()
-                .status(status)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(json!({"detail": err.detail}).to_string()))
+            api_response(status, err.detail)
         }
     };
 
@@ -113,12 +122,7 @@ pub async fn preload_image(
         Some(header) => header.to_str().unwrap_or("").into(),
     };
     if api_key != server_api_key {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({
-                "detail": "Mismatched api key"
-            })),
-        );
+        return api_response(StatusCode::UNAUTHORIZED, "Mismatched api key".to_string()).unwrap();
     }
 
     // Prefetch without holding a lock on the entire config
@@ -131,8 +135,8 @@ pub async fn preload_image(
         )
         .await;
     if let Err(err) = result {
-        return (StatusCode::BAD_REQUEST, Json(json!({"detail": err.detail})));
+        return api_response(StatusCode::BAD_REQUEST, err.detail).unwrap();
     }
 
-    (StatusCode::OK, Json(json!({"status": "Ok"})))
+    api_response(StatusCode::OK,"Ok".to_string()).unwrap()
 }

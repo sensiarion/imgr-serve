@@ -42,7 +42,7 @@ pub trait BackgroundService {
 
 pub async fn serve_background(
     services: Vec<Arc<RwLock<dyn BackgroundService + Send + Sync>>>,
-    mut cancel_token: tokio::sync::watch::Receiver<bool>,
+    cancel_token: tokio::sync::watch::Receiver<bool>,
 ) -> JoinSet<()> {
     let mut futures = JoinSet::new();
 

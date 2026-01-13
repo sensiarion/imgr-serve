@@ -10,19 +10,69 @@ use envconfig::Envconfig;
 use log::info;
 use std::num::NonZeroUsize;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
-use strum::{Display, EnumString};
+use strum::{EnumString};
 
-#[derive(Clone, EnumString, Display, Eq, PartialEq)]
+#[derive(Clone, EnumString, strum::Display, Eq, PartialEq)]
 pub enum StorageImplementation {
     InMemory,
     Persistent,
 }
 
-#[derive(Clone, EnumString, Display, Eq, PartialEq)]
+#[derive(Clone, EnumString, strum::Display, Eq, PartialEq)]
 pub enum ProcessingCacheImplementation {
     InMemory,
     Persistent,
+}
+
+pub struct Size {
+    width: u32,
+    height: u32,
+}
+
+impl Size {
+    pub fn is_allowed_size(&self, width: &Option<u32>, height: &Option<u32>) -> bool {
+        if let Some(width) = width && *width > self.width{
+            return false
+        }
+        if let Some(height) = height && *height > self.height{
+            return false
+        }
+        true
+    }
+}
+
+pub struct ParseSizeError {
+    msg: String,
+}
+
+impl FromStr for Size {
+    type Err = ParseSizeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let elems: Vec<&str> = s.split(',').collect();
+        if elems.len() != 2 {
+            return Err(ParseSizeError {
+                msg: format!("Expected size \"width, height\", got {}", s),
+            });
+        }
+        let sizes: Vec<u32> = elems
+            .iter()
+            .map_while(|el| el.parse::<u32>().ok())
+            .collect();
+
+        if sizes.len() != 2 {
+            return Err(ParseSizeError {
+                msg: format!("Expected size \"width, height\", got {}", s),
+            });
+        }
+
+        Ok(Size {
+            width: sizes.get(0).unwrap().clone(),
+            height: sizes.get(1).unwrap().clone(),
+        })
+    }
 }
 
 // TODO add prefixes before release
@@ -62,6 +112,10 @@ struct EnvConfig {
     /// Client cache (in browser) duration (in seconds) for served images
     #[envconfig(from = "CLIENT_CACHE_TTL", default = "31536000")]
     pub client_cache_ttl: usize,
+
+    /// Max image resulting size after resize (width,height)
+    #[envconfig(from = "MAX_IMAGE_RESIZE", default = "1920,1080")]
+    pub max_image_resize: Size,
 }
 
 pub struct Config {
@@ -71,6 +125,7 @@ pub struct Config {
     pub processor: Processor,
 
     pub client_cache_ttl: usize,
+    pub max_image_resize: Size,
 }
 
 impl Config {
@@ -160,6 +215,7 @@ impl Config {
             api_key: env_conf.api_key,
             processor,
             client_cache_ttl: env_conf.client_cache_ttl,
+            max_image_resize: env_conf.max_image_resize
         }
     }
 }
