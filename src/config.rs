@@ -1,10 +1,10 @@
-use crate::persistent_store::PersistentStore;
-use crate::processed_image_cache::{
+use crate::store::persistent_store::PersistentStore;
+use crate::store::processed_image_cache::{
     MemoryProcessedImageCache, PersistentProcessedImageCache, ProcessedImagesCache,
 };
-use crate::processing::Processor;
+use crate::image_ops::processing::Processor;
 use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
-use crate::storage::{CachingStorage, PersistentStorage, Storage};
+use crate::store::source_image_storage::{CachingStorage, PersistentStorage, OriginalImageStorage};
 use envconfig;
 use envconfig::Envconfig;
 use log::info;
@@ -44,6 +44,7 @@ impl Size {
 }
 
 pub struct ParseSizeError {
+    #[allow(dead_code)]
     msg: String,
 }
 
@@ -171,7 +172,7 @@ impl Config {
         };
 
         info!("Using {} storage", env_conf.storage_implementation);
-        let storage: Arc<tokio::sync::RwLock<dyn Storage + Send + Sync>> = match env_conf
+        let storage: Arc<tokio::sync::RwLock<dyn OriginalImageStorage + Send + Sync>> = match env_conf
             .storage_implementation
         {
             StorageImplementation::InMemory => Arc::new(tokio::sync::RwLock::with_max_readers(

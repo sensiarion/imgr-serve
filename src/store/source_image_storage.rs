@@ -1,5 +1,6 @@
-use crate::persistent_store::{PersistSpace, PersistentStore};
-use crate::types::{BackgroundService, ImageId};
+use crate::store::persistent_store::{PersistSpace, PersistentStore};
+use crate::utils::types::ImageId;
+use crate::utils::background::BackgroundService;
 use async_trait::async_trait;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -8,11 +9,12 @@ use tokio::sync::watch::Receiver;
 
 /// Storage to cache original image files, receiving from base api
 #[async_trait]
-pub trait Storage: BackgroundService {
+pub trait OriginalImageStorage: BackgroundService {
     async fn get(&self, image_id: ImageId) -> Option<Arc<Vec<u8>>>;
 
     async fn set(&mut self, image_id: ImageId, data: &Vec<u8>);
 
+    #[allow(dead_code)]
     async fn remove(&mut self, image_id: ImageId);
 }
 
@@ -37,7 +39,7 @@ impl CachingStorage {
 }
 
 #[async_trait]
-impl Storage for CachingStorage {
+impl OriginalImageStorage for CachingStorage {
     async fn get(&self, image_id: ImageId) -> Option<Arc<Vec<u8>>> {
         self.cache.get(&image_id)
     }
@@ -46,7 +48,7 @@ impl Storage for CachingStorage {
         self.cache.insert(image_id, Arc::new(data.clone()));
     }
 
-    async fn remove(&mut self, image_id: ImageId){
+    async fn remove(&mut self, image_id: ImageId) {
         self.cache.remove(&image_id);
     }
 }
@@ -79,7 +81,7 @@ pub struct PersistentStorage {
 }
 
 impl PersistentStorage {
-    pub fn new(store: Arc<PersistentStore>, capacity: Option<NonZeroUsize>) -> Self {
+    pub fn new(store: Arc<PersistentStore>, _capacity: Option<NonZeroUsize>) -> Self {
         PersistentStorage {
             store,
             cancel_chan: tokio::sync::watch::channel(false),
@@ -88,7 +90,7 @@ impl PersistentStorage {
 }
 
 #[async_trait]
-impl Storage for PersistentStorage {
+impl OriginalImageStorage for PersistentStorage {
     async fn get(&self, image_id: ImageId) -> Option<Arc<Vec<u8>>> {
         let v = self.store.get(PersistSpace::Storage, &image_id).await;
 
@@ -102,7 +104,7 @@ impl Storage for PersistentStorage {
         self.store.set(PersistSpace::Storage, &image_id, data).await;
     }
 
-    async fn remove(&mut self, image_id: ImageId){
+    async fn remove(&mut self, image_id: ImageId) {
         self.store.remove(PersistSpace::Storage, &image_id).await;
     }
 }

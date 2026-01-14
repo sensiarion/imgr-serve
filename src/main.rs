@@ -1,17 +1,11 @@
 mod config;
-mod filename_extractor;
-mod image_processing;
-mod image_types;
-mod persistent_store;
-mod processed_image_cache;
-mod processing;
 mod proxying_images;
 mod routes;
-mod storage;
-mod types;
+mod image_ops;
+mod utils;
+mod store;
 
 use crate::config::Config;
-use crate::types::{serve_background, BackgroundService};
 use axum::http::StatusCode;
 use axum::routing::put;
 use axum::{routing::get, Router};
@@ -28,6 +22,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry;
 use tracing_subscriber::util::SubscriberInitExt;
+use utils::background::{serve_background, BackgroundService};
 
 /// Configure async runtime and rayon cpu usage with optimal configuration
 fn configure_runtime() -> Runtime {

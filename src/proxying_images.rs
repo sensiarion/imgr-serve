@@ -1,4 +1,5 @@
-use crate::types::ImageId;
+/// Fetching images from original files API
+use crate::utils::types::ImageId;
 use async_trait::async_trait;
 use log::debug;
 use reqwest::{Client, StatusCode};

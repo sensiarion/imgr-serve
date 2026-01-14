@@ -1,4 +1,4 @@
-use crate::image_types::Extensions;
+use crate::image_ops::image_types::Extensions;
 use fast_image_resize::Resizer;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgba};
 

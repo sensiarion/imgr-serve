@@ -276,6 +276,7 @@ services:
         - env config for ttl (allow no expiring at all)
         - ttl implementation will require another change of store api (at least for storage), need to implement data
           layout robust to adding new attributes for values
+- [ ] add avif file format response, if accepts header contains it
 
 ### Variability
 

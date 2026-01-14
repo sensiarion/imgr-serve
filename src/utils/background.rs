@@ -1,30 +1,8 @@
-use crate::image_types::Extensions;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
+use async_trait::async_trait;
 use tokio::sync::{watch, RwLock};
 use tokio::task::JoinSet;
-
-/// it may be uuid, or complex link with path, either will work as simple string
-pub type ImageId = String;
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ImageContainer {
-    pub data: Box<Vec<u8>>,
-    pub filename: Option<String>,
-    pub extension: Extensions,
-}
-
-impl ImageContainer {
-    pub fn new(data: Box<Vec<u8>>, filename: Option<String>, extension: Extensions) -> Self {
-        ImageContainer {
-            data,
-            filename,
-            extension,
-        }
-    }
-}
 
 /// Trait defining scheduling and running of background tasks for storage/cache
 #[async_trait]

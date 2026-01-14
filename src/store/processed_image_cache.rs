@@ -1,6 +1,6 @@
-use crate::image_processing::ProcessingParams;
-use crate::persistent_store::{PersistSpace, PersistentStore};
-use crate::types::{BackgroundService, ImageContainer, ImageId};
+use crate::image_ops::operations::ProcessingParams;
+use crate::store::persistent_store::{PersistSpace, PersistentStore};
+use crate::utils::types::{ImageContainer, ImageId};
 use async_trait::async_trait;
 use image::EncodableLayout;
 use serde::Serialize;
@@ -8,6 +8,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
+use crate::utils::background::BackgroundService;
 
 /// Cache for processed images with different params
 #[async_trait]
@@ -112,7 +113,7 @@ pub struct PersistentProcessedImageCache {
 }
 
 impl PersistentProcessedImageCache {
-    pub fn new(store: Arc<PersistentStore>, capacity: Option<NonZeroUsize>) -> Self {
+    pub fn new(store: Arc<PersistentStore>, _capacity: Option<NonZeroUsize>) -> Self {
         PersistentProcessedImageCache {
             store,
             cancel_chan: tokio::sync::watch::channel(false),

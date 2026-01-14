@@ -1,11 +1,11 @@
-use crate::image_processing;
-use crate::image_processing::{cast_to_extension, ProcessingParams};
-use crate::image_types::{Extensions, IntoImageFormat};
-use crate::persistent_store::{PersistentStore, StorageBackgroundAdapter};
-use crate::processed_image_cache::ProcessedImagesCache;
+use crate::image_ops::operations;
+use crate::image_ops::operations::{cast_to_extension, ProcessingParams};
+use crate::image_ops::image_types::{Extensions, IntoImageFormat};
+use crate::store::persistent_store::{PersistentStore, StorageBackgroundAdapter};
+use crate::store::processed_image_cache::ProcessedImagesCache;
 use crate::proxying_images::FileApiBackend;
-use crate::storage::{Storage};
-use crate::types::{BackgroundService, ImageContainer, ImageId};
+use crate::store::source_image_storage::OriginalImageStorage;
+use crate::utils::types::{ImageContainer, ImageId};
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
 use std::sync::Arc;
@@ -13,6 +13,7 @@ use std::time::Instant;
 use tokio::sync::RwLock;
 use tokio::task::spawn_blocking;
 use tracing::instrument;
+use crate::utils::background::BackgroundService;
 
 pub enum ProcessingErrorType {
     UnsupportingExtension,
@@ -46,7 +47,7 @@ impl ProcessingError {
 }
 
 pub struct Processor {
-    storage: Arc<RwLock<dyn Storage + Send + Sync>>,
+    storage: Arc<RwLock<dyn OriginalImageStorage + Send + Sync>>,
     cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
     file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
     persistent_storage: Option<Arc<PersistentStore>>,
@@ -54,7 +55,7 @@ pub struct Processor {
 
 impl Processor {
     pub fn new(
-        storage: Arc<RwLock<dyn Storage + Send + Sync>>,
+        storage: Arc<RwLock<dyn OriginalImageStorage + Send + Sync>>,
         cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
         file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
         persistent_storage: Option<Arc<PersistentStore>>,
@@ -233,7 +234,7 @@ impl Processor {
 
             let params = params_clone;
             let resize_op_start = Instant::now();
-            let resized = image_processing::resize::<DynamicImage>(
+            let resized = operations::resize::<DynamicImage>(
                 &img,
                 params.width,
                 params.height,

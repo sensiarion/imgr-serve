@@ -1,8 +1,8 @@
 use crate::config::Config;
-use crate::filename_extractor::FileNameExtractor;
-use crate::image_processing::ProcessingParams;
-use crate::image_types::{Extensions, MimeType};
-use crate::processing::ProcessingErrorType;
+use crate::utils::filename_extractor::FileNameExtractor;
+use crate::image_ops::operations::ProcessingParams;
+use crate::image_ops::image_types::{Extensions, MimeType};
+use crate::image_ops::processing::ProcessingErrorType;
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, HeaderValue, Response, StatusCode};
