@@ -1,4 +1,3 @@
-
 use crate::utils::background::BackgroundService;
 use async_trait::async_trait;
 use fjall::{Keyspace, KeyspaceCreateOptions, PersistMode, Slice};
@@ -114,7 +113,7 @@ impl PersistentStore {
         .await
         .unwrap();
     }
-    
+
     #[allow(dead_code)]
     pub async fn remove<K>(&self, space: PersistSpace, key: &K)
     where

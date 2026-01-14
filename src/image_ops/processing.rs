@@ -1,10 +1,11 @@
-use crate::image_ops::operations;
-use crate::image_ops::operations::{cast_to_extension, ProcessingParams};
 use crate::image_ops::image_types::{Extensions, IntoImageFormat};
+use crate::image_ops::operations;
+use crate::image_ops::operations::{ProcessingParams, cast_to_extension};
+use crate::proxying_images::FileApiBackend;
 use crate::store::persistent_store::{PersistentStore, StorageBackgroundAdapter};
 use crate::store::processed_image_cache::ProcessedImagesCache;
-use crate::proxying_images::FileApiBackend;
 use crate::store::source_image_storage::OriginalImageStorage;
+use crate::utils::background::BackgroundService;
 use crate::utils::types::{ImageContainer, ImageId};
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
@@ -13,7 +14,6 @@ use std::time::Instant;
 use tokio::sync::RwLock;
 use tokio::task::spawn_blocking;
 use tracing::instrument;
-use crate::utils::background::BackgroundService;
 
 pub enum ProcessingErrorType {
     UnsupportingExtension,

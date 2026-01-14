@@ -1,10 +1,10 @@
+use crate::image_ops::processing::Processor;
+use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
 use crate::store::persistent_store::PersistentStore;
 use crate::store::processed_image_cache::{
     MemoryProcessedImageCache, PersistentProcessedImageCache, ProcessedImagesCache,
 };
-use crate::image_ops::processing::Processor;
-use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
-use crate::store::source_image_storage::{CachingStorage, PersistentStorage, OriginalImageStorage};
+use crate::store::source_image_storage::{CachingStorage, OriginalImageStorage, PersistentStorage};
 use envconfig;
 use envconfig::Envconfig;
 use log::info;
@@ -12,7 +12,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
-use strum::{EnumString};
+use strum::EnumString;
 
 #[derive(Clone, EnumString, strum::Display, Eq, PartialEq)]
 pub enum StorageImplementation {
@@ -33,11 +33,15 @@ pub struct Size {
 
 impl Size {
     pub fn is_allowed_size(&self, width: &Option<u32>, height: &Option<u32>) -> bool {
-        if let Some(width) = width && *width > self.width{
-            return false
+        if let Some(width) = width
+            && *width > self.width
+        {
+            return false;
         }
-        if let Some(height) = height && *height > self.height{
-            return false
+        if let Some(height) = height
+            && *height > self.height
+        {
+            return false;
         }
         true
     }
@@ -172,18 +176,22 @@ impl Config {
         };
 
         info!("Using {} storage", env_conf.storage_implementation);
-        let storage: Arc<tokio::sync::RwLock<dyn OriginalImageStorage + Send + Sync>> = match env_conf
-            .storage_implementation
-        {
-            StorageImplementation::InMemory => Arc::new(tokio::sync::RwLock::with_max_readers(
-                CachingStorage::new(Some(storage_size)),
-                1024,
-            )),
-            StorageImplementation::Persistent => Arc::new(tokio::sync::RwLock::with_max_readers(
-                PersistentStorage::new(persistent_store.clone().unwrap(), Some(storage_size)),
-                1024,
-            )),
-        };
+        let storage: Arc<tokio::sync::RwLock<dyn OriginalImageStorage + Send + Sync>> =
+            match env_conf.storage_implementation {
+                StorageImplementation::InMemory => Arc::new(tokio::sync::RwLock::with_max_readers(
+                    CachingStorage::new(Some(storage_size)),
+                    1024,
+                )),
+                StorageImplementation::Persistent => {
+                    Arc::new(tokio::sync::RwLock::with_max_readers(
+                        PersistentStorage::new(
+                            persistent_store.clone().unwrap(),
+                            Some(storage_size),
+                        ),
+                        1024,
+                    ))
+                }
+            };
 
         info!(
             "Using {} processing cache",
@@ -216,7 +224,7 @@ impl Config {
             api_key: env_conf.api_key,
             processor,
             client_cache_ttl: env_conf.client_cache_ttl,
-            max_image_resize: env_conf.max_image_resize
+            max_image_resize: env_conf.max_image_resize,
         }
     }
 }

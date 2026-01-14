@@ -1,11 +1,11 @@
 use crate::config::Config;
-use crate::utils::filename_extractor::FileNameExtractor;
-use crate::image_ops::operations::ProcessingParams;
 use crate::image_ops::image_types::{Extensions, MimeType};
+use crate::image_ops::operations::ProcessingParams;
 use crate::image_ops::processing::ProcessingErrorType;
+use crate::utils::filename_extractor::FileNameExtractor;
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::{header, HeaderMap, HeaderValue, Response, StatusCode};
+use axum::http::{HeaderMap, HeaderValue, Response, StatusCode, header};
 use axum::response::IntoResponse;
 use http::response::Builder;
 use log::{debug, info};
@@ -138,5 +138,5 @@ pub async fn preload_image(
         return api_response(StatusCode::BAD_REQUEST, err.detail).unwrap();
     }
 
-    api_response(StatusCode::OK,"Ok".to_string()).unwrap()
+    api_response(StatusCode::OK, "Ok".to_string()).unwrap()
 }

@@ -1,6 +1,6 @@
 use crate::store::persistent_store::{PersistSpace, PersistentStore};
-use crate::utils::types::ImageId;
 use crate::utils::background::BackgroundService;
+use crate::utils::types::ImageId;
 use async_trait::async_trait;
 use std::num::NonZeroUsize;
 use std::sync::Arc;

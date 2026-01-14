@@ -1,7 +1,7 @@
+use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
-use async_trait::async_trait;
-use tokio::sync::{watch, RwLock};
+use tokio::sync::{RwLock, watch};
 use tokio::task::JoinSet;
 
 /// Trait defining scheduling and running of background tasks for storage/cache

@@ -1,14 +1,14 @@
 mod config;
+mod image_ops;
 mod proxying_images;
 mod routes;
-mod image_ops;
-mod utils;
 mod store;
+mod utils;
 
 use crate::config::Config;
 use axum::http::StatusCode;
 use axum::routing::put;
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use log::info;
 use routes::images;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry;
 use tracing_subscriber::util::SubscriberInitExt;
-use utils::background::{serve_background, BackgroundService};
+use utils::background::{BackgroundService, serve_background};
 
 /// Configure async runtime and rayon cpu usage with optimal configuration
 fn configure_runtime() -> Runtime {
@@ -85,7 +85,7 @@ fn main() {
             .with_graceful_shutdown(shutdown_signal(
                 background_services,
                 background_tasks_runner,
-                shutdown_channel.0
+                shutdown_channel.0,
             ))
             .await
             .unwrap();

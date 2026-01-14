@@ -1,5 +1,6 @@
 use crate::image_ops::operations::ProcessingParams;
 use crate::store::persistent_store::{PersistSpace, PersistentStore};
+use crate::utils::background::BackgroundService;
 use crate::utils::types::{ImageContainer, ImageId};
 use async_trait::async_trait;
 use image::EncodableLayout;
@@ -8,13 +9,12 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
-use crate::utils::background::BackgroundService;
 
 /// Cache for processed images with different params
 #[async_trait]
 pub trait ProcessedImagesCache: BackgroundService {
     async fn get(&self, image_id: ImageId, params: ProcessingParams)
-                 -> Option<Arc<ImageContainer>>;
+    -> Option<Arc<ImageContainer>>;
 
     async fn set(
         &mut self,
@@ -129,7 +129,11 @@ struct CacheKey {
 
 impl CacheKey {
     fn as_key(&self) -> String {
-        format!("{}_{}", &self.image_id, serde_json::to_string(&self.params).unwrap())
+        format!(
+            "{}_{}",
+            &self.image_id,
+            serde_json::to_string(&self.params).unwrap()
+        )
     }
 }
 
@@ -166,7 +170,9 @@ impl ProcessedImagesCache for PersistentProcessedImageCache {
     }
 
     async fn remove(&mut self, image_id: ImageId) {
-        self.store.remove_by_prefix(PersistSpace::Cache,&image_id).await;
+        self.store
+            .remove_by_prefix(PersistSpace::Cache, &image_id)
+            .await;
     }
 }
 
