@@ -246,7 +246,7 @@ impl Processor {
             }
 
             let encode_start = Instant::now();
-            let extension = params.extension.unwrap_or(Extensions::Webp);
+            let extension = params.extension.unwrap_or(Extensions::default());
             let result_data =
                 cast_to_extension::<DynamicImage>(resized, extension.clone(), params.quality);
             let encode_time = encode_start.elapsed();

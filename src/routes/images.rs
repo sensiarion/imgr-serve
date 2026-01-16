@@ -87,7 +87,7 @@ pub async fn serve_file(
             .header(header::CONTENT_TYPE, img.extension.mime_type())
             .header(
                 header::CONTENT_DISPOSITION,
-                content_disposition_header(img.filename.clone(), Extensions::Webp),
+                content_disposition_header(img.filename.clone(), img.extension),
             )
             .body(Body::from(img.data.as_slice().to_owned())),
         Err(err) => {

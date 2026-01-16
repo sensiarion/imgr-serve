@@ -1,6 +1,6 @@
 use crate::image_ops::image_types::Extensions;
 use fast_image_resize::Resizer;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Pixel, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, Pixel, Rgba};
 
 pub const DEFAULT_COMPRESSION_QUALITY: u32 = 82;
 
@@ -119,6 +119,37 @@ pub fn cast_to_extension<I: GenericImageView<Pixel = Rgba<u8>>>(
                 .encode(quality.unwrap_or(DEFAULT_COMPRESSION_QUALITY) as f32)
                 .as_ref()
                 .to_owned();
+            bytes_img
+        }
+        Extensions::Avif => {
+            let mut bytes_img: Vec<u8> = Vec::new();
+            let codec =
+                image::codecs::avif::AvifEncoder::new_with_speed_quality(&mut bytes_img, 8, 92);
+
+            codec
+                .write_image(
+                    &new_data,
+                    new_width,
+                    new_height,
+                    image::ExtendedColorType::Rgba8,
+                )
+                .unwrap();
+
+            bytes_img
+        }
+        Extensions::PNG => {
+            let mut bytes_img: Vec<u8> = Vec::new();
+            let codec = image::codecs::png::PngEncoder::new(&mut bytes_img);
+
+            codec
+                .write_image(
+                    &new_data,
+                    new_width,
+                    new_height,
+                    image::ExtendedColorType::Rgba8,
+                )
+                .unwrap();
+
             bytes_img
         }
     }

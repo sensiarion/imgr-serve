@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.1.3
+--------
+
+* Add support for AVIF output extension (not as input)
+
+
 0.1.2
 --------
 

@@ -276,7 +276,16 @@ services:
         - env config for ttl (allow no expiring at all)
         - ttl implementation will require another change of store api (at least for storage), need to implement data
           layout robust to adding new attributes for values
-- [ ] add avif file format response, if accepts header contains it
+- [x] ~~add avif file format response, if accepts header contains it~~
+    - avif may be about ~25% more efficient in compressing, but it turns into x10 serialization time
+    - this format is supporting as output, but it's not primary
+        - however, it will be useful on preloading feature with restricted resizing set. In this case, it can be
+          prepared and cached in background, without extra wait for end user
+- [ ] do not expose underlying base api like "{"detail":"err: error sending request for
+  url (http://localhost:6570/files/123); status: None"}" in errors
+
+- [ ] extend input supporting extensions (avif, jpegxl)
+  - there is issue with unmaintained imghdr crate, maybe need to switch onto parsing via image lib directly
 
 ### Variability
 

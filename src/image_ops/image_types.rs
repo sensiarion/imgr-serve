@@ -53,13 +53,23 @@ impl IntoImageFormat for imghdr::Type {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Hash, Eq, Copy, Clone)]
 pub enum Extensions {
     Webp,
+    Avif,
+    PNG,
 }
 
 impl Extensions {
     pub fn name(&self) -> &str {
         match self {
             Extensions::Webp => "webp",
+            Extensions::Avif => "avif",
+            Extensions::PNG => "png",
         }
+    }
+}
+
+impl Default for Extensions {
+    fn default() -> Self {
+        Extensions::Webp
     }
 }
 
@@ -67,6 +77,8 @@ impl MimeType for Extensions {
     fn mime_type(&self) -> &str {
         match &self {
             Extensions::Webp => "image/webp",
+            Extensions::Avif => "image/avif",
+            Extensions::PNG => "image/png",
         }
     }
 }
