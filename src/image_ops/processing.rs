@@ -7,6 +7,7 @@ use crate::store::processed_image_cache::ProcessedImagesCache;
 use crate::store::source_image_storage::OriginalImageStorage;
 use crate::utils::background::BackgroundService;
 use crate::utils::types::{ImageContainer, ImageId};
+use envconfig::Envconfig;
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
 use std::sync::Arc;
@@ -51,6 +52,9 @@ pub struct Processor {
     cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
     file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
     persistent_storage: Option<Arc<PersistentStore>>,
+
+    default_extension: Extensions,
+    allow_custom_extension: bool,
 }
 
 impl Processor {
@@ -59,12 +63,16 @@ impl Processor {
         cache: Arc<RwLock<dyn ProcessedImagesCache + Send + Sync>>,
         file_api: Option<Arc<dyn FileApiBackend + Send + Sync>>,
         persistent_storage: Option<Arc<PersistentStore>>,
+        default_extension: Extensions,
+        allow_custom_extension: bool,
     ) -> Self {
         Processor {
             storage,
             cache,
             file_api,
             persistent_storage,
+            default_extension,
+            allow_custom_extension,
         }
     }
 
@@ -205,10 +213,20 @@ impl Processor {
         }
     }
 
+    fn determine_extension(&self, params: &ProcessingParams) -> Extensions {
+        if !self.allow_custom_extension {
+            return self.default_extension;
+        }
+        match params.extension {
+            None => self.default_extension,
+            Some(v) => v,
+        }
+    }
+
     /// Fully process image and puts it in all caches (storage + processing cache)
     ///
     /// * `image_id` - should be only the **original** image (cause it's passing into storage cache)
-    pub async fn _process_image(
+    async fn _process_image(
         &self,
         image_id: ImageId,
         original_image: Arc<Vec<u8>>,
@@ -226,6 +244,7 @@ impl Processor {
         }
 
         let original_image_clone = original_image.clone();
+        let extension = self.determine_extension(&params);
         let result = spawn_blocking(move || {
             let original_image = original_image_clone;
             let img =
@@ -246,7 +265,6 @@ impl Processor {
             }
 
             let encode_start = Instant::now();
-            let extension = params.extension.unwrap_or(Extensions::default());
             let result_data =
                 cast_to_extension::<DynamicImage>(resized, extension.clone(), params.quality);
             let encode_time = encode_start.elapsed();

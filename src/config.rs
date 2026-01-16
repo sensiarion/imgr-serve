@@ -1,3 +1,4 @@
+use crate::image_ops::image_types::Extensions;
 use crate::image_ops::processing::Processor;
 use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
 use crate::store::persistent_store::PersistentStore;
@@ -88,39 +89,46 @@ struct EnvConfig {
     #[envconfig(from = "PORT", default = "3021")]
     pub port: u32,
 
+    // ------------------
+    // Fetching from base api and prefetching
     #[envconfig(from = "BASE_FILE_API_URL")]
     base_file_api_url: Option<String>,
     #[envconfig(from = "BASE_FILE_API_URL_TIMEOUT", default = "30")]
     base_file_api_timeout: u32,
-
     #[envconfig(from = "API_KEY", default = "")]
     pub api_key: String,
 
+    // ------------------
+    // Caching settings settings
     #[envconfig(from = "STORAGE_IMPLEMENTATION", default = "InMemory")]
     pub storage_implementation: StorageImplementation,
-
     #[envconfig(from = "PROCESSING_CACHE_IMPLEMENTATION", default = "InMemory")]
     pub processing_cache_implementation: ProcessingCacheImplementation,
-
     /// Count of original images cached in memory
     #[envconfig(from = "STORAGE_CACHE_SIZE", default = "256")]
     pub storage_cache_size: usize,
-
     /// Count of processed images (after resize, crop and etc) stored in memory
     #[envconfig(from = "PROCESSING_CACHE_SIZE", default = "1024")]
     pub processing_cache_size: usize,
-
     /// Persistent db location (directory) for both processing and storage cache
     #[envconfig(from = "PERSISTENT_STORAGE_DIR", default = ".imgr-serve")]
     pub persistent_storage_dir: String,
 
+    // ------------------
+    // Processing settings
     /// Client cache (in browser) duration (in seconds) for served images
     #[envconfig(from = "CLIENT_CACHE_TTL", default = "31536000")]
     pub client_cache_ttl: usize,
-
     /// Max image resulting size after resize (width,height)
     #[envconfig(from = "MAX_IMAGE_RESIZE", default = "1920,1080")]
     pub max_image_resize: Size,
+
+    /// Default resulting extension
+    #[envconfig(from = "DEFAULT_EXTENSION", default = "Webp")]
+    pub default_extension: Extensions,
+    /// Allow custom extensions (if false, only DEFAULT_EXTENSION will be returned)
+    #[envconfig(from = "ALLOW_CUSTOM_EXTENSION", default = "true")]
+    pub allow_custom_extension: bool,
 }
 
 pub struct Config {
@@ -216,7 +224,14 @@ impl Config {
                 }
             };
 
-        let processor = Processor::new(storage, cache, base_file_api, persistent_store);
+        let processor = Processor::new(
+            storage,
+            cache,
+            base_file_api,
+            persistent_store,
+            env_conf.default_extension,
+            env_conf.allow_custom_extension,
+        );
 
         Config {
             host: env_conf.host,

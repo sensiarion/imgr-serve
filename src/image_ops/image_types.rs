@@ -1,6 +1,7 @@
 use image::ImageFormat;
 use imghdr::Type;
 use serde::{Deserialize, Serialize};
+use strum::EnumString;
 
 pub trait MimeType {
     fn mime_type(&self) -> &str;
@@ -50,7 +51,7 @@ impl IntoImageFormat for imghdr::Type {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Hash, Eq, Copy, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Hash, Eq, Copy, Clone, EnumString)]
 pub enum Extensions {
     Webp,
     Avif,

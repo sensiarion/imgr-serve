@@ -36,6 +36,7 @@ fn caching_headers(builder: Builder, cache_ttl: usize) -> Builder {
         )
 }
 
+/// Filename header, supporting UTF-8 chars
 fn content_disposition_header(filename: Option<String>, extensions: Extensions) -> HeaderValue {
     let full_filename = format!(
         "{}.{}",

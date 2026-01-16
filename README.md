@@ -285,7 +285,8 @@ services:
   url (http://localhost:6570/files/123); status: None"}" in errors
 
 - [ ] extend input supporting extensions (avif, jpegxl)
-  - there is issue with unmaintained imghdr crate, maybe need to switch onto parsing via image lib directly
+    - there is issue with unmaintained imghdr crate, maybe need to switch onto parsing via image lib directly
+- [ ] honor accept header if not conflicts with restrictive env settings
 
 ### Variability
 
