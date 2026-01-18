@@ -8,23 +8,27 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use strum::{Display, EnumString};
+use strum::IntoEnumIterator;
+use strum::{Display, EnumIter, EnumString};
 use tokio::sync::watch::Receiver;
 use tokio::task::spawn_blocking;
 
-#[derive(Debug, EnumString, Display)]
+#[derive(Debug, EnumString, Display, EnumIter)]
 pub enum PersistSpace {
     Storage,
     Cache,
+    CacheEntries,
 }
 
 const PERSISTENT_STORAGE_KEYSPACE: &str = "storage";
 const PERSISTENT_CACHE_KEYSPACE: &str = "cache";
+const PERSISTENT_CACHE_ENTRIES_KEYSPACE: &str = "cache_entries";
 
 pub struct PersistentStore {
     db: fjall::Database,
     store_keyspace: Keyspace,
     cache_keyspace: Keyspace,
+    cache_entries_keyspace: Keyspace,
 }
 
 /// Expecting source image is about 2mb size
@@ -49,17 +53,40 @@ impl PersistentStore {
             .open()
             .unwrap();
 
-        let store_keyspace = db
-            .keyspace(PERSISTENT_STORAGE_KEYSPACE, KeyspaceCreateOptions::default)
-            .unwrap();
-        let cache_keyspace = db
-            .keyspace(PERSISTENT_CACHE_KEYSPACE, KeyspaceCreateOptions::default)
-            .unwrap();
+        let mut storage_keyspace: Option<Keyspace> = None;
+        let mut cache_keyspace: Option<Keyspace> = None;
+        let mut cache_entries_keyspace: Option<Keyspace> = None;
+        for key in PersistSpace::iter() {
+            match key {
+                PersistSpace::Storage => {
+                    storage_keyspace = Some(
+                        db.keyspace(PERSISTENT_STORAGE_KEYSPACE, KeyspaceCreateOptions::default)
+                            .unwrap(),
+                    );
+                }
+                PersistSpace::Cache => {
+                    cache_keyspace = Some(
+                        db.keyspace(PERSISTENT_CACHE_KEYSPACE, KeyspaceCreateOptions::default)
+                            .unwrap(),
+                    )
+                }
+                PersistSpace::CacheEntries => {
+                    cache_entries_keyspace = Some(
+                        db.keyspace(
+                            PERSISTENT_CACHE_ENTRIES_KEYSPACE,
+                            KeyspaceCreateOptions::default,
+                        )
+                        .unwrap(),
+                    )
+                }
+            }
+        }
 
         PersistentStore {
             db,
-            store_keyspace,
-            cache_keyspace,
+            store_keyspace: storage_keyspace.unwrap(),
+            cache_keyspace: cache_keyspace.unwrap(),
+            cache_entries_keyspace: cache_entries_keyspace.unwrap(),
         }
     }
 
@@ -67,6 +94,7 @@ impl PersistentStore {
         match space {
             PersistSpace::Storage => self.store_keyspace.clone(),
             PersistSpace::Cache => self.cache_keyspace.clone(),
+            PersistSpace::CacheEntries => self.cache_entries_keyspace.clone(),
         }
     }
     pub async fn get<K>(&self, space: PersistSpace, key: &K) -> Option<Slice>
@@ -77,9 +105,11 @@ impl PersistentStore {
 
         let key = to_stdvec(&key).unwrap();
 
-        spawn_blocking(move || keyspace.get(key).unwrap())
+        let res = spawn_blocking(move || keyspace.get(key).unwrap())
             .await
-            .unwrap()
+            .unwrap();
+
+        res
     }
 
     pub async fn set<K, V>(&self, space: PersistSpace, key: &K, value: &V)
@@ -147,7 +177,7 @@ impl StorageBackgroundAdapter {
 #[async_trait]
 impl BackgroundService for StorageBackgroundAdapter {
     fn background_period(&self) -> Duration {
-        Duration::new(60, 0)
+        Duration::new(5, 0)
     }
 
     async fn background(&mut self) {

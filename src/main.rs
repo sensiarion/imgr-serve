@@ -1,3 +1,5 @@
+extern crate core;
+
 mod config;
 mod image_ops;
 mod proxying_images;
@@ -6,18 +8,15 @@ mod store;
 mod utils;
 
 use crate::config::Config;
-use axum::http::StatusCode;
 use axum::routing::put;
 use axum::{Router, routing::get};
 use log::info;
 use routes::images;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::signal;
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
-use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry;
@@ -67,15 +66,19 @@ fn main() {
         let background_tasks_runner =
             serve_background(background_services.clone(), shutdown_channel.1).await;
 
-        let app = Router::new()
+        let mut app = Router::new()
             .route("/images/{id}", get(images::serve_file))
             .route("/images/{id}", put(images::preload_image))
-            .layer(TimeoutLayer::with_status_code(
-                StatusCode::GATEWAY_TIMEOUT,
-                Duration::from_secs(30),
-            ))
             .layer(TraceLayer::new_for_http())
             .with_state(Arc::new(config));
+
+        #[cfg(not(debug_assertions))]
+        {
+            app = app.layer(TimeoutLayer::with_status_code(
+                StatusCode::GATEWAY_TIMEOUT,
+                Duration::from_secs(30),
+            ));
+        }
 
         info!("Running server on http://{}:{}", host, port);
         let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))

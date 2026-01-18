@@ -94,9 +94,15 @@ impl OriginalImageStorage for PersistentStorage {
     async fn get(&self, image_id: ImageId) -> Option<Arc<Vec<u8>>> {
         let v = self.store.get(PersistSpace::Storage, &image_id).await;
 
+        // TODO remove hashing debug
+
         match v {
             None => return None,
-            Some(v) => Some(Arc::new(v.to_vec())),
+            Some(v) => {
+                let hash = md5::compute(v.clone());
+                println!("Hashed!!! getting from store {}", hex::encode(hash.0));
+                Some(Arc::new(v.to_vec()))
+            }
         }
     }
 

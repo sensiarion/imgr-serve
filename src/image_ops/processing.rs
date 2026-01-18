@@ -1,13 +1,12 @@
-use crate::image_ops::image_types::{Extensions, IntoImageFormat};
+use crate::image_ops::image_types::Extensions;
 use crate::image_ops::operations;
 use crate::image_ops::operations::{ProcessingParams, cast_to_extension};
 use crate::proxying_images::FileApiBackend;
 use crate::store::persistent_store::{PersistentStore, StorageBackgroundAdapter};
-use crate::store::processed_image_cache::ProcessedImagesCache;
+use crate::store::processed_cache::ProcessedImagesCache;
 use crate::store::source_image_storage::OriginalImageStorage;
 use crate::utils::background::BackgroundService;
 use crate::utils::types::{ImageContainer, ImageId};
-use envconfig::Envconfig;
 use image::{DynamicImage, ImageFormat};
 use log::{debug, warn};
 use std::sync::Arc;
@@ -20,6 +19,7 @@ pub enum ProcessingErrorType {
     UnsupportingExtension,
     NotFound,
     FileApiError,
+    ProcessedImagesLimit,
     // CorruptedCache
 }
 
@@ -31,6 +31,9 @@ impl ProcessingErrorType {
             }
             ProcessingErrorType::NotFound => "Current image is not found".to_string(),
             ProcessingErrorType::FileApiError => "File not found".to_string(),
+            ProcessingErrorType::ProcessedImagesLimit => {
+                "Limit exceed. No any new image formats allowed".to_string()
+            }
         }
     }
 }
@@ -89,11 +92,13 @@ impl Processor {
 
     /// Determine image format, from supporting by formatting lib
     fn get_image_format(&self, data: &Vec<u8>) -> Option<ImageFormat> {
-        let img_type = imghdr::from_bytes(data.as_slice());
-        if let Some(img_type) = img_type {
-            return img_type.image_format();
+        let hash = md5::compute(data.clone());
+        println!("Hashed!!! get_iamge_format {}", hex::encode(hash.0));
+
+        match image::guess_format(data.as_ref()) {
+            Ok(format) => Some(format),
+            Err(_) => None,
         }
-        None
     }
     fn ensure_correct_extension(&self, data: &Vec<u8>) -> Option<ProcessingError> {
         let img_format = self.get_image_format(data);
@@ -135,6 +140,8 @@ impl Processor {
             return Ok(cached);
         }
 
+        let mut exists_in_orig_storage = false;
+
         // Check storage for original image
         let processed_from_storage = {
             let orig_image = {
@@ -145,12 +152,12 @@ impl Processor {
                 if lock_wait.as_millis() > 10 {
                     debug!("Storage lock wait: {:?} for image {}", lock_wait, image_id);
                 }
-                storage_guard.get(image_id.clone()).await.clone()
+                storage_guard.get(image_id.clone()).await
             };
             match orig_image {
                 None => None,
                 Some(orig_image) => {
-                    let img_format = self.get_image_format(&orig_image);
+                    let img_format = self.get_image_format(orig_image.as_ref());
                     match img_format {
                         None => {
                             warn!(
@@ -160,6 +167,7 @@ impl Processor {
                             None
                         }
                         Some(_) => {
+                            exists_in_orig_storage = true;
                             debug!("Found image {} in storage, start processing", image_id);
                             return self._process_image(image_id, orig_image, params).await;
                         }
@@ -201,7 +209,7 @@ impl Processor {
             // TODO: make setting into storage and cache parallel of main execution flow
             Ok(orig_image) => {
                 debug!("Fetched from api, start processing image {}", image_id);
-                {
+                if !exists_in_orig_storage {
                     let storage = self.storage.clone();
                     let mut storage_guard = storage.write().await;
                     storage_guard.set(image_id.clone(), &orig_image).await;
@@ -295,9 +303,18 @@ impl Processor {
                     lock_wait, image_id
                 );
             }
-            cache_guard
+            match cache_guard
                 .set(image_id.clone(), params, result.clone())
-                .await;
+                .await
+            {
+                Ok(_) => {}
+                Err(err) => {
+                    return Err(ProcessingError::new(
+                        ProcessingErrorType::ProcessedImagesLimit,
+                        Some(err.error.to_string()),
+                    ));
+                }
+            };
         }
 
         Ok(result)

@@ -2,9 +2,9 @@ use crate::image_ops::image_types::Extensions;
 use crate::image_ops::processing::Processor;
 use crate::proxying_images::{FileApiBackend, SimpleFileApiBackend};
 use crate::store::persistent_store::PersistentStore;
-use crate::store::processed_image_cache::{
-    MemoryProcessedImageCache, PersistentProcessedImageCache, ProcessedImagesCache,
-};
+use crate::store::procesessed_persistent_cache::PersistentProcessedImageCache;
+use crate::store::processed_cache::ProcessedImagesCache;
+use crate::store::processed_memory_cache::MemoryProcessedImageCache;
 use crate::store::source_image_storage::{CachingStorage, OriginalImageStorage, PersistentStorage};
 use envconfig;
 use envconfig::Envconfig;
@@ -25,6 +25,12 @@ pub enum StorageImplementation {
 pub enum ProcessingCacheImplementation {
     InMemory,
     Persistent,
+}
+
+#[derive(Clone, EnumString, strum::Display, Eq, PartialEq)]
+pub enum ImageOptionsOverflowPolicy {
+    Restrict,
+    Rewrite,
 }
 
 pub struct Size {
@@ -106,10 +112,10 @@ struct EnvConfig {
     pub processing_cache_implementation: ProcessingCacheImplementation,
     /// Count of original images cached in memory
     #[envconfig(from = "STORAGE_CACHE_SIZE", default = "256")]
-    pub storage_cache_size: usize,
+    pub storage_cache_size: NonZeroUsize,
     /// Count of processed images (after resize, crop and etc) stored in memory
     #[envconfig(from = "PROCESSING_CACHE_SIZE", default = "1024")]
-    pub processing_cache_size: usize,
+    pub processing_cache_size: NonZeroUsize,
     /// Persistent db location (directory) for both processing and storage cache
     #[envconfig(from = "PERSISTENT_STORAGE_DIR", default = ".imgr-serve")]
     pub persistent_storage_dir: String,
@@ -129,6 +135,15 @@ struct EnvConfig {
     /// Allow custom extensions (if false, only DEFAULT_EXTENSION will be returned)
     #[envconfig(from = "ALLOW_CUSTOM_EXTENSION", default = "true")]
     pub allow_custom_extension: bool,
+
+    /// Restrict max options (size, extensions and etc) per image
+    /// This option prevents poisoning processing cache with insufficient options
+    #[envconfig(from = "MAX_OPTIONS_PER_IMAGE", default = "32")]
+    pub max_options_per_image: NonZeroUsize,
+    /// Behaviour on exceeding limit of MAX_OPTIONS_PER_IMAGE.
+    /// by default it will be rewrite it as LRU cache
+    #[envconfig(from = "MAX_OPTIONS_PER_IMAGE_OVERFLOW_POLICY", default = "Rewrite")]
+    pub max_options_per_image_overflow_policy: ImageOptionsOverflowPolicy,
 }
 
 pub struct Config {
@@ -152,10 +167,8 @@ impl Config {
             )) as Arc<dyn FileApiBackend + Send + Sync>),
         };
 
-        let storage_size = NonZeroUsize::new(env_conf.storage_cache_size)
-            .unwrap_or(NonZeroUsize::new(256).unwrap());
-        let cache_size = NonZeroUsize::new(env_conf.processing_cache_size)
-            .unwrap_or(NonZeroUsize::new(1024).unwrap());
+        let storage_size = env_conf.storage_cache_size;
+        let cache_size = env_conf.processing_cache_size;
         let need_persist_store = env_conf.storage_implementation
             == StorageImplementation::Persistent
             || env_conf.processing_cache_implementation
@@ -209,7 +222,11 @@ impl Config {
             match env_conf.processing_cache_implementation {
                 ProcessingCacheImplementation::InMemory => {
                     Arc::new(tokio::sync::RwLock::with_max_readers(
-                        MemoryProcessedImageCache::new(Some(storage_size)),
+                        MemoryProcessedImageCache::new(
+                            Some(storage_size),
+                            env_conf.max_options_per_image.clone(),
+                            env_conf.max_options_per_image_overflow_policy.clone(),
+                        ),
                         1024,
                     ))
                 }
@@ -218,6 +235,8 @@ impl Config {
                         PersistentProcessedImageCache::new(
                             persistent_store.clone().unwrap(),
                             Some(storage_size),
+                            env_conf.max_options_per_image.clone(),
+                            env_conf.max_options_per_image_overflow_policy.clone(),
                         ),
                         1024,
                     ))
