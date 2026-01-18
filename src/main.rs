@@ -9,7 +9,7 @@ mod utils;
 
 use crate::config::Config;
 use axum::routing::put;
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use log::info;
 use routes::images;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::registry;
 use tracing_subscriber::util::SubscriberInitExt;
-use utils::background::{serve_background, BackgroundService};
+use utils::background::{BackgroundService, serve_background};
 
 /// Configure async runtime and rayon cpu usage with optimal configuration
 fn configure_runtime() -> Runtime {
@@ -74,9 +74,9 @@ fn main() {
 
         #[cfg(not(debug_assertions))]
         {
-            use tower_http::timeout::TimeoutLayer;
             use axum::http::StatusCode;
             use std::time::Duration;
+            use tower_http::timeout::TimeoutLayer;
             app = app.layer(TimeoutLayer::with_status_code(
                 StatusCode::GATEWAY_TIMEOUT,
                 Duration::from_secs(30),

@@ -2,11 +2,11 @@ use crate::store::persistent_store::{PersistSpace, PersistentStore};
 use crate::utils::background::BackgroundService;
 use crate::utils::types::ImageId;
 use async_trait::async_trait;
+use image::EncodableLayout;
 use postcard::to_stdvec;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
-use image::EncodableLayout;
 use tokio::sync::watch::Receiver;
 
 /// Storage to cache original image files, receiving from base api
@@ -96,14 +96,10 @@ impl OriginalImageStorage for PersistentStorage {
     async fn get(&self, image_id: ImageId) -> Option<Arc<Vec<u8>>> {
         let v = self.store.get(PersistSpace::Storage, &image_id).await;
 
-        // TODO remove hashing debug
-
         match v {
             None => return None,
             Some(v) => {
                 let decoded = postcard::from_bytes::<Vec<u8>>(v.as_bytes()).ok()?;
-                let hash = md5::compute(decoded.clone());
-                println!("Hashed!!! getting from store {}", hex::encode(hash.0));
                 Some(Arc::new(decoded))
             }
         }

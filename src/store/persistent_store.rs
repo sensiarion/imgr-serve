@@ -109,6 +109,18 @@ impl PersistentStore {
             .unwrap()
     }
 
+    pub async fn exists<K>(&self, space: PersistSpace, key: &K) -> bool
+    where
+        K: Serialize + Send + Sync + 'static,
+    {
+        let keyspace = self.keyspace(space);
+        let key = to_stdvec(&key).unwrap();
+
+        spawn_blocking(move || keyspace.contains_key(key).unwrap())
+            .await
+            .unwrap()
+    }
+
     pub async fn set<K>(&self, space: PersistSpace, key: &K, value: &[u8])
     where
         K: Serialize + Send + Sync + 'static,

@@ -87,7 +87,6 @@ impl FromStr for Size {
     }
 }
 
-// TODO add prefixes before release
 #[derive(Envconfig)]
 struct EnvConfig {
     #[envconfig(from = "HOST", default = "0.0.0.0")]

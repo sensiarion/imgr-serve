@@ -92,9 +92,6 @@ impl Processor {
 
     /// Determine image format, from supporting by formatting lib
     fn get_image_format(&self, data: &Vec<u8>) -> Option<ImageFormat> {
-        let hash = md5::compute(data.clone());
-        println!("Hashed!!! get_iamge_format {}", hex::encode(hash.0));
-
         match image::guess_format(data.as_ref()) {
             Ok(format) => Some(format),
             Err(_) => None,
@@ -140,8 +137,6 @@ impl Processor {
             return Ok(cached);
         }
 
-        let mut exists_in_orig_storage = false;
-
         // Check storage for original image
         let processed_from_storage = {
             let orig_image = {
@@ -167,7 +162,6 @@ impl Processor {
                             None
                         }
                         Some(_) => {
-                            exists_in_orig_storage = true;
                             debug!("Found image {} in storage, start processing", image_id);
                             return self._process_image(image_id, orig_image, params).await;
                         }
@@ -209,11 +203,10 @@ impl Processor {
             // TODO: make setting into storage and cache parallel of main execution flow
             Ok(orig_image) => {
                 debug!("Fetched from api, start processing image {}", image_id);
-                if !exists_in_orig_storage {
-                    let storage = self.storage.clone();
-                    let mut storage_guard = storage.write().await;
-                    storage_guard.set(image_id.clone(), &orig_image).await;
-                }
+
+                let storage = self.storage.clone();
+                let mut storage_guard = storage.write().await;
+                storage_guard.set(image_id.clone(), &orig_image).await;
 
                 self._process_image(image_id, Arc::new(orig_image), params)
                     .await

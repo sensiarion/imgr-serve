@@ -137,10 +137,23 @@ The service is configured via environment variables. See `.env.example` for all 
 - `PORT`: Server port (default: `3021`)
 - `API_KEY`: Secret key for preloading images
 - `BASE_FILE_API_URL`: Backend API URL for fetching images (optional)
+
+
+-------------------
+
 - `STORAGE_IMPLEMENTATION`: `InMemory` or `Persistent` for original images
 - `PROCESSING_CACHE_IMPLEMENTATION`: `InMemory` or `Persistent` for processed images
 - `STORAGE_CACHE_SIZE`: Number of original images to cache (default: 256)
 - `PROCESSING_CACHE_SIZE`: Number of processed images to cache (default: 1024)
+
+-------------------
+
+- `DEFAULT_EXTENSION`: Default resulting extension (default: Webp)
+- `ALLOW_CUSTOM_EXTENSION`: Allow custom extensions (if false, only DEFAULT_EXTENSION will be returned) (default: true)
+- `MAX_OPTIONS_PER_IMAGE`: Restrict max options (size, extensions and etc) per image (default: 32)
+- `MAX_OPTIONS_PER_IMAGE_OVERFLOW_POLICY`: Behaviour on exceeding limit of MAX_OPTIONS_PER_IMAGE (default: Rewrite)
+
+Also check .env.example for full description
 
 ## API Endpoints
 
@@ -153,11 +166,12 @@ Serve an image with optional processing parameters.
 - `width`: Target width in pixels
 - `height`: Target height in pixels
 - `ratio_policy`: How to handle aspect ratio differences (`resize` or `crop_center`)
+- `extension`: Resulting image extension (`Webp` (best), Avif (best compression, but slow), PNG (for legacy))
 
 **Example:**
 
 ```bash
-GET /images/photo123.jpg?width=800&height=600&ratio_policy=crop_center
+GET /images/photo123.jpg?width=800&height=600&ratio_policy=crop_center&extension=Webp
 ```
 
 ### PUT `/images/{id}`
@@ -266,7 +280,7 @@ services:
 - [x] flushing storage to disk (implement background ops)
 - [ ] persistent settings (on every transaction, in periods)
 - [ ] configurable flush periods
-- [ ] restrict maximum sizes for concrete image via env var
+- [x] restrict maximum sizes for concrete image via env var
 - [ ] optional whitelist of allowed sizes
 - [ ] pass resize params (multiple) to preload to fully warm up before serve
 - [ ] correct cache invalidation (recalc all resized images on updating image)
@@ -285,12 +299,15 @@ services:
   url (http://localhost:6570/files/123); status: None"}" in errors
 
 - [ ] extend input supporting extensions (avif, jpegxl)
-    - there is issue with unmaintained imghdr crate, maybe need to switch onto parsing via image lib directly
+    - x avif
+    - jpegxl
 - [ ] honor accept header if not conflicts with restrictive env settings
 
 ### Variability
 
 - [ ] Support various output formats (not just WebP, also avif, jpg, png)
+  - x webp, avif, png
+  - jpg
 - [ ] Support Redis cache (for larger deployments)
 - [ ] Support S3 as backend for persistent file storage
     - Note: Might not be optimal; on-the-fly cache processing likely faster

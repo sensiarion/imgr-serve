@@ -1,11 +1,19 @@
 Changelog
 =========
 
+0.1.4
+--------
+
+* fix bug with incorrect packing data, causes to reload image from api
+* add limit to max version of the image storing into cache, it can be controlled via vars
+    * `MAX_OPTIONS_PER_IMAGE_OVERFLOW_POLICY` (Rewrite or Restrict)
+        * Restrict - will raise error when `MAX_OPTIONS_PER_IMAGE` is exceed
+        * Rewrite - will drop last cache record to the new one
+
 0.1.3
 --------
 
 * Add support for AVIF output extension (not as input)
-
 
 0.1.2
 --------

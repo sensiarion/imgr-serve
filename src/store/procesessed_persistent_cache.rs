@@ -106,7 +106,11 @@ impl ProcessedImagesCache for PersistentProcessedImageCache {
         entries.insert((image_id.clone(), params.clone()));
         let entries_bytes = to_stdvec(&entries).unwrap();
         self.store
-            .set(PersistSpace::CacheEntries, image_id, entries_bytes.as_slice())
+            .set(
+                PersistSpace::CacheEntries,
+                image_id,
+                entries_bytes.as_slice(),
+            )
             .await;
     }
 
@@ -125,8 +129,7 @@ impl ProcessedImagesCache for PersistentProcessedImageCache {
     async fn have_record(&self, image_id: &ImageId, params: &ProcessingParams) -> bool {
         let key = cache_key(&image_id, &params);
 
-        // TODO: refacator to entry check to prevent obj load from memory
-        self.store.get(PersistSpace::Cache, &key).await.is_some()
+        self.store.exists(PersistSpace::Cache, &key).await
     }
 
     fn set_lock(&self) -> Arc<Mutex<()>> {
