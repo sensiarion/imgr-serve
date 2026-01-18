@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    nasm \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests
