@@ -64,7 +64,10 @@ impl FileApiBackend for SimpleFileApiBackend {
                 "Got http error while trying to fetch image from file api: {}. Err: {}",
                 image_id, err
             );
-            return Err(FileApiError::new(err.to_string(), None));
+            return Err(FileApiError::new(
+                "Failed to request image from base api".to_string(),
+                None,
+            ));
         }
         let resp = resp.unwrap();
         let status = resp.status();

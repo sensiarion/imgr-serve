@@ -295,7 +295,7 @@ services:
     - this format is supporting as output, but it's not primary
         - however, it will be useful on preloading feature with restricted resizing set. In this case, it can be
           prepared and cached in background, without extra wait for end user
-- [ ] do not expose underlying base api like "{"detail":"err: error sending request for
+- [x] do not expose underlying base api like "{"detail":"err: error sending request for
   url (http://localhost:6570/files/123); status: None"}" in errors
 
 - [ ] extend input supporting extensions (avif, jpegxl)
