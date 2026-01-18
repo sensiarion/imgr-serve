@@ -102,25 +102,21 @@ impl PersistentStore {
         K: Serialize + Send + Sync + 'static,
     {
         let keyspace = self.keyspace(space);
-
         let key = to_stdvec(&key).unwrap();
 
-        let res = spawn_blocking(move || keyspace.get(key).unwrap())
+        spawn_blocking(move || keyspace.get(key).unwrap())
             .await
-            .unwrap();
-
-        res
+            .unwrap()
     }
 
-    pub async fn set<K, V>(&self, space: PersistSpace, key: &K, value: &V)
+    pub async fn set<K>(&self, space: PersistSpace, key: &K, value: &[u8])
     where
         K: Serialize + Send + Sync + 'static,
-        V: Serialize + Send + Sync + 'static,
     {
         let keyspace = self.keyspace(space);
 
         let key = to_stdvec(&key).unwrap();
-        let value = to_stdvec(&value).unwrap();
+        let value = value.to_vec();
 
         spawn_blocking(move || keyspace.insert(key, value).unwrap())
             .await
@@ -177,7 +173,7 @@ impl StorageBackgroundAdapter {
 #[async_trait]
 impl BackgroundService for StorageBackgroundAdapter {
     fn background_period(&self) -> Duration {
-        Duration::new(5, 0)
+        Duration::new(60, 0)
     }
 
     async fn background(&mut self) {

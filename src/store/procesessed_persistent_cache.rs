@@ -6,6 +6,7 @@ use crate::utils::background::BackgroundService;
 use crate::utils::types::{ImageContainer, ImageId};
 use async_trait::async_trait;
 use image::EncodableLayout;
+use postcard::to_stdvec;
 use std::collections::BTreeSet;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -98,12 +99,14 @@ impl ProcessedImagesCache for PersistentProcessedImageCache {
         }
 
         // TODO: prevent postcard parsing unwrap
+        let image_bytes = to_stdvec(image.as_ref()).unwrap();
         self.store
-            .set(PersistSpace::Cache, &key, image.as_ref())
+            .set(PersistSpace::Cache, &key, image_bytes.as_slice())
             .await;
         entries.insert((image_id.clone(), params.clone()));
+        let entries_bytes = to_stdvec(&entries).unwrap();
         self.store
-            .set(PersistSpace::CacheEntries, image_id, &entries)
+            .set(PersistSpace::CacheEntries, image_id, entries_bytes.as_slice())
             .await;
     }
 
