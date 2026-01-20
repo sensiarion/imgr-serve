@@ -200,7 +200,7 @@ impl Processor {
                     )),
                 ))
             }
-            // TODO: make setting into storage and cache parallel of main execution flow
+
             Ok(orig_image) => {
                 debug!("Fetched from api, start processing image {}", image_id);
 

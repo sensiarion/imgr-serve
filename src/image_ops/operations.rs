@@ -1,12 +1,22 @@
 use crate::image_ops::image_types::Extensions;
 use fast_image_resize::Resizer;
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, Pixel, Rgba};
+use schemars::JsonSchema;
 
 pub const DEFAULT_COMPRESSION_QUALITY: u32 = 82;
 
 /// Behaviour on requesting images with different ratio, then source
 #[derive(
-    serde::Deserialize, serde::Serialize, PartialEq, Hash, Eq, Clone, Debug, Ord, PartialOrd,
+    serde::Deserialize,
+    serde::Serialize,
+    JsonSchema,
+    PartialEq,
+    Hash,
+    Eq,
+    Clone,
+    Debug,
+    Ord,
+    PartialOrd,
 )]
 pub enum RatioPolicy {
     /// Just resize with changing ratio and shrinking or etc image
@@ -22,12 +32,20 @@ impl Default for RatioPolicy {
 }
 
 #[derive(
-    serde::Deserialize, serde::Serialize, PartialEq, Hash, Eq, Clone, Debug, Ord, PartialOrd,
+    serde::Deserialize,
+    serde::Serialize,
+    JsonSchema,
+    PartialEq,
+    Hash,
+    Eq,
+    Clone,
+    Debug,
+    Ord,
+    PartialOrd,
 )]
 pub struct ProcessingParams {
     pub width: Option<u32>,
     pub height: Option<u32>,
-    // TODO: accept only certain extensions
     pub extension: Option<Extensions>,
     pub quality: Option<u32>,
     pub ratio_policy: Option<RatioPolicy>,

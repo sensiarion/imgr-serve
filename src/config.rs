@@ -143,6 +143,10 @@ struct EnvConfig {
     /// by default it will be rewrite it as LRU cache
     #[envconfig(from = "MAX_OPTIONS_PER_IMAGE_OVERFLOW_POLICY", default = "Rewrite")]
     pub max_options_per_image_overflow_policy: ImageOptionsOverflowPolicy,
+
+    /// Enable OpenAPI and Swagger docs routes
+    #[envconfig(from = "ENABLE_DOCS", default = "true")]
+    pub enable_docs: bool,
 }
 
 pub struct Config {
@@ -153,6 +157,7 @@ pub struct Config {
 
     pub client_cache_ttl: usize,
     pub max_image_resize: Size,
+    pub enable_docs: bool,
 }
 
 impl Config {
@@ -258,6 +263,7 @@ impl Config {
             processor,
             client_cache_ttl: env_conf.client_cache_ttl,
             max_image_resize: env_conf.max_image_resize,
+            enable_docs: env_conf.enable_docs,
         }
     }
 }

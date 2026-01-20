@@ -2,14 +2,19 @@ extern crate core;
 
 mod config;
 mod image_ops;
+mod openapi;
 mod proxying_images;
 mod routes;
 mod store;
 mod utils;
 
 use crate::config::Config;
-use axum::routing::put;
-use axum::{Router, routing::get};
+use aide::axum::ApiRouter;
+use aide::axum::routing::{get_with, put_with};
+use aide::openapi::{Info, OpenApi};
+use aide::swagger::Swagger;
+use axum::routing::get;
+use axum::{Extension, Router};
 use log::info;
 use routes::images;
 use std::sync::Arc;
@@ -45,6 +50,59 @@ fn configure_runtime() -> Runtime {
         .expect("Failed to create tokio runtime")
 }
 
+fn openapi_spec() -> OpenApi {
+    OpenApi {
+        info: Info {
+            title: env!("CARGO_BIN_NAME").to_string(),
+            description: Some(
+                "Image proxy and processing API with cache-backed resizing.".to_string(),
+            ),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+fn app_init(state: Arc<Config>, enable_docs: bool) -> Router {
+    let mut openapi = openapi_spec();
+
+    let api = ApiRouter::new()
+        .api_route(
+            "/images/{id}",
+            get_with(images::serve_file, images::serve_file_docs),
+        )
+        .api_route(
+            "/images/{id}",
+            put_with(images::preload_image, images::preload_image_docs),
+        )
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
+
+    let mut app = api.finish_api(&mut openapi);
+
+    if enable_docs {
+        let openapi = Arc::new(openapi);
+        app = app
+            .route("/openapi.json", get(routes::openapi::openapi_json))
+            .route("/docs", get(Swagger::new("/openapi.json").axum_handler()))
+            .layer(Extension(openapi));
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        use axum::http::StatusCode;
+        use std::time::Duration;
+        use tower_http::timeout::TimeoutLayer;
+        app = app.layer(TimeoutLayer::with_status_code(
+            StatusCode::GATEWAY_TIMEOUT,
+            Duration::from_secs(30),
+        ));
+    }
+
+    app
+}
+
 fn main() {
     registry()
         .with(
@@ -59,31 +117,20 @@ fn main() {
     rt.block_on(async {
         let config = Config::from_env();
         let (host, port) = (config.host.clone(), config.port.clone());
+        let enable_docs = config.enable_docs;
 
         let shutdown_channel = tokio::sync::watch::channel(false);
-
         let background_services = config.processor.get_background_services();
         let background_tasks_runner =
             serve_background(background_services.clone(), shutdown_channel.1).await;
 
-        let mut app = Router::new()
-            .route("/images/{id}", get(images::serve_file))
-            .route("/images/{id}", put(images::preload_image))
-            .layer(TraceLayer::new_for_http())
-            .with_state(Arc::new(config));
-
-        #[cfg(not(debug_assertions))]
-        {
-            use axum::http::StatusCode;
-            use std::time::Duration;
-            use tower_http::timeout::TimeoutLayer;
-            app = app.layer(TimeoutLayer::with_status_code(
-                StatusCode::GATEWAY_TIMEOUT,
-                Duration::from_secs(30),
-            ));
-        }
+        let state = Arc::new(config);
+        let app = app_init(state, enable_docs);
 
         info!("Running server on http://{}:{}", host, port);
+        if enable_docs {
+            info!("Docs available at http://{}:{}/docs", host, port);
+        }
         let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port))
             .await
             .unwrap();

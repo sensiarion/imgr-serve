@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::EnumString;
 
@@ -6,7 +7,18 @@ pub trait MimeType {
 }
 
 #[derive(
-    Deserialize, Serialize, Debug, PartialEq, Hash, Eq, Copy, Clone, EnumString, Ord, PartialOrd,
+    Deserialize,
+    Serialize,
+    JsonSchema,
+    Debug,
+    PartialEq,
+    Hash,
+    Eq,
+    Copy,
+    Clone,
+    EnumString,
+    Ord,
+    PartialOrd,
 )]
 pub enum Extensions {
     Webp,

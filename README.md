@@ -24,6 +24,8 @@ curl -X PUT "http://localhost:3021/images/photo123" \
 
 **Example Output:** Optimized WebP image with proper caching headers, served directly to the client.
 
+You can watch swagger docs on `http://localhost:3021/docs`
+
 ## Getting Started
 
 ### Quick Start with Docker Compose
@@ -137,7 +139,7 @@ The service is configured via environment variables. See `.env.example` for all 
 - `PORT`: Server port (default: `3021`)
 - `API_KEY`: Secret key for preloading images
 - `BASE_FILE_API_URL`: Backend API URL for fetching images (optional)
-
+- `ENABLE_DOCS`: Server openapi and swagger docs on /openapi.json and /docs routes (default: `true`)
 
 -------------------
 
@@ -274,7 +276,7 @@ services:
         - Calculate projected aspect ratio and crop from center, then resize
 
 - [ ] Direct compression support
-- [ ] Clean up all TODOs from code
+- [x] Clean up all TODOs from code
 - [ ] ETag support for dynamic content (and conditional requests) control behaviour via config)
     - also add expiration option for storing images, to re-request it from original file server
 - [x] flushing storage to disk (implement background ops)
@@ -301,13 +303,16 @@ services:
 - [ ] extend input supporting extensions (avif, jpegxl)
     - x avif
     - jpegxl
-- [ ] honor accept header if not conflicts with restrictive env settings
+- [ ] honor Accept header if not conflicts with restrictive env settings
+- [ ] refactor image processing onto builder
+  - this makes optimizations easier, like fetching nearest image from cache, or allow custom quality, but this
+    also requires storage/cache refactoring, to search nearest cache implementation
 
 ### Variability
 
 - [ ] Support various output formats (not just WebP, also avif, jpg, png)
-  - x webp, avif, png
-  - jpg
+    - x webp, avif, png
+    - jpg
 - [ ] Support Redis cache (for larger deployments)
 - [ ] Support S3 as backend for persistent file storage
     - Note: Might not be optimal; on-the-fly cache processing likely faster
@@ -316,7 +321,7 @@ services:
 
 ### Usability
 
-- [ ] Swagger/OpenAPI documentation
+- [x] Swagger/OpenAPI documentation
 - [ ] Clear and documented error messages
     - also clarify error messages on connecting to base api, it's not always clear (like "builder error on incorrect
       url"")

@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.1.5
+--------
+
+* add openapi support
+
+
 0.1.4
 --------
 
